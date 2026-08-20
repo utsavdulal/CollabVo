@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    letter-spacing: -0.011em;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-zinc-50 text-zinc-900 dark:bg-[#0c0e17] dark:text-white antialiased transition-colors duration-150;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98];
+  }
+  .btn-primary {
+    @apply btn bg-[#6366f1] text-white hover:bg-[#4f46e5] shadow-md shadow-indigo-950/20 dark:shadow-indigo-950/50;
+  }
+  .btn-secondary {
+    @apply btn border border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-100 dark:border-[#262a3e] dark:bg-[#1a1d2d] dark:text-white dark:hover:bg-[#212538];
+  }
+  .input {
+    @apply w-full rounded-2xl border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-[#6366f1] focus:ring-1 focus:ring-[#6366f1] dark:border-[#262a3e] dark:bg-[#161926] dark:text-white dark:placeholder:text-[#8e95af] transition-all;
+  }
+  .chip {
+    @apply inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-[#262a3e] dark:bg-[#161926] dark:text-[#8e95af] dark:hover:border-[#3a4060] dark:hover:text-white whitespace-nowrap transition-colors;
+  }
+  .chip-active {
+    @apply border-[#6366f1] bg-indigo-50 text-[#4338ca] dark:border-[#6366f1] dark:bg-[#232542] dark:text-white;
+  }
+}
+
+/* Hide scrollbar for category and horizontal lists */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
