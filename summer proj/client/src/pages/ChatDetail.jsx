@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Send } from 'lucide-react';
 import { api } from '../lib/api.js';
+import { useMessagesSSE } from '../lib/useMessagesSSE.js';
 import { Avatar } from '../components/ui/Avatar.jsx';
 import { Spinner } from '../components/ui/Spinner.jsx';
 import { useAuthStore } from '../store/authStore.js';
@@ -36,18 +37,41 @@ export default function ChatDetail() {
   const send = async (e) => {
     e.preventDefault();
     if (!text.trim()) return;
+    const msgText = text.trim();
+    setText('');
     setSending(true);
     try {
-      const other = conversation?.participantIds?.find((p) => String(p._id) !== String(user.id));
-      await api('/messages', { method: 'POST', body: { toUserId: other?._id || '', text: text.trim() } });
-      setText('');
-      load();
+      const data = await api(`/messages/${id}/messages`, { method: 'POST', body: { text: msgText } });
+      if (data.message) {
+        setMessages((prev) => {
+          if (prev.some((m) => String(m._id) === String(data.message._id))) return prev;
+          return [...prev, data.message];
+        });
+      }
     } catch {
-      /* ignore send error */
+      setText(msgText);
     } finally {
       setSending(false);
     }
   };
+
+  // Real-time messages via SSE
+  useMessagesSSE({
+    onNewMessage: (data) => {
+      if (String(data.conversationId) === String(id)) {
+        setMessages((prev) => {
+          if (prev.some((m) => String(m._id) === String(data.message._id))) return prev;
+          return [...prev, data.message];
+        });
+        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+      }
+    },
+    onConversationUpdated: (data) => {
+      if (String(data.conversationId) === String(id)) {
+        setConversation((prev) => prev ? { ...prev, lastMessage: data.lastMessage, lastMessageAt: data.lastMessageAt } : prev);
+      }
+    }
+  });
 
   const mine = (m) => String(m.senderId) === String(user.id);
   const other = conversation?.participantIds?.find((p) => String(p._id) !== String(user.id));

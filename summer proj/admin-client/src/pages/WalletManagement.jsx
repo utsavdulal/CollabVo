@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, Wallet } from 'lucide-react';
+import { Search, Wallet, AlertTriangle } from 'lucide-react';
 import { api } from '../lib/api.js';
 
 export default function WalletManagement() {
@@ -13,18 +13,31 @@ export default function WalletManagement() {
   const [note, setNote] = useState('');
   const [withdrawals, setWithdrawals] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [confirmPay, setConfirmPay] = useState(null);
+  const [confirmDeny, setConfirmDeny] = useState(null);
+
+  const showMsg = (msg, isErr = false) => {
+    if (isErr) setError(msg);
+    else setSuccess(msg);
+    setTimeout(() => { setError(''); setSuccess(''); }, 3000);
+  };
 
   const search = async () => {
     if (!q.trim()) return;
     setLoading(true);
-    const d = await api(`/users?q=${encodeURIComponent(q.trim())}`).catch(() => ({ users: [] }));
+    setError('');
+    const d = await api(`/users?q=${encodeURIComponent(q.trim())}`).catch(() => { showMsg('Search failed', true); return { users: [] }; });
     setUsers(d.users || []);
     setLoading(false);
   };
 
   const openUser = async (u) => {
     setSelected(u);
-    const d = await api(`/wallet/user/${u._id}`);
+    setWallet(null);
+    setError('');
+    const d = await api(`/wallet/user/${u._id}`).catch(() => { showMsg('Failed to load wallet', true); return { wallet: null, transactions: [] }; });
     setWallet(d.wallet);
     setLedger(d.transactions || []);
   };
@@ -44,35 +57,74 @@ export default function WalletManagement() {
   const topUp = async (e) => {
     e.preventDefault();
     if (!amount || Number(amount) <= 0) return;
-    await api('/wallet/topup', { method: 'POST', body: { userId: selected._id, amount: Number(amount), referenceNote: note } });
-    setAmount('');
-    setNote('');
-    openUser(selected);
+    setError('');
+    try {
+      await api('/wallet/topup', { method: 'POST', body: { userId: selected._id, amount: Number(amount), referenceNote: note } });
+      setAmount('');
+      setNote('');
+      showMsg(`₹${amount} credited successfully`);
+      openUser(selected);
+    } catch (err) {
+      showMsg(err.message || 'Top up failed', true);
+    }
+  };
+
+  const deduct = async (e) => {
+    e.preventDefault();
+    if (!amount || Number(amount) <= 0 || !note.trim()) return;
+    setError('');
+    try {
+      await api('/wallet/deduct', { method: 'POST', body: { userId: selected._id, amount: Number(amount), reason: note } });
+      setAmount('');
+      setNote('');
+      showMsg(`₹${amount} deducted successfully`);
+      openUser(selected);
+    } catch (err) {
+      showMsg(err.message || 'Deduction failed', true);
+    }
   };
 
   const pay = async (id) => {
-    await api(`/wallet/withdrawals/${id}/pay`, { method: 'POST' });
-    loadWithdrawals();
+    setConfirmPay(null);
+    try {
+      await api(`/wallet/withdrawals/${id}/pay`, { method: 'POST' });
+      showMsg('Payout marked as paid');
+      loadWithdrawals();
+    } catch (err) {
+      showMsg(err.message || 'Pay failed', true);
+    }
   };
 
   const deny = async (id) => {
-    await api(`/wallet/withdrawals/${id}/deny`, { method: 'POST' });
-    loadWithdrawals();
+    setConfirmDeny(null);
+    try {
+      await api(`/wallet/withdrawals/${id}/deny`, { method: 'POST' });
+      showMsg('Payout denied');
+      loadWithdrawals();
+    } catch (err) {
+      showMsg(err.message || 'Deny failed', true);
+    }
   };
 
   return (
     <div>
       <h1 className="text-lg font-bold">Wallet Management</h1>
 
+      {(error || success) && (
+        <div className={`mt-3 rounded-lg px-3 py-2 text-xs font-semibold ${error ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+          {error || success}
+        </div>
+      )}
+
       <div className="mt-4 flex gap-1 rounded-xl border border-gray-200 bg-white p-1">
-        {['topup', 'withdrawals'].map((t) => (
-          <button key={t} type="button" onClick={() => setTab(t)} className={`flex-1 rounded-lg py-2 text-sm font-semibold ${tab === t ? 'bg-brand text-white' : 'text-gray-500'}`}>
-            {t === 'topup' ? 'Top Ups' : 'Payout Requests'}
+        {['topup', 'deduct', 'withdrawals'].map((t) => (
+          <button key={t} type="button" onClick={() => { setTab(t); setError(''); setSuccess(''); }} className={`flex-1 rounded-lg py-2 text-sm font-semibold ${tab === t ? 'bg-brand text-white' : 'text-gray-500'}`}>
+            {t === 'topup' ? 'Top Ups' : t === 'deduct' ? 'Deduct Funds' : 'Payout Requests'}
           </button>
         ))}
       </div>
 
-      {tab === 'topup' && (
+      {(tab === 'topup' || tab === 'deduct') && (
         <div className="mt-4">
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -87,7 +139,7 @@ export default function WalletManagement() {
           ) : (
             <div className="mt-3 space-y-2">
               {users.map((u) => (
-                <button key={u._id} type="button" onClick={() => openUser(u)} className="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-white p-3 text-left hover:border-brand">
+                <button key={u._id} type="button" onClick={() => openUser(u)} className={`flex w-full items-center justify-between rounded-xl border bg-white p-3 text-left transition-colors ${selected?._id === u._id ? 'border-brand' : 'border-gray-200 hover:border-brand'}`}>
                   <div>
                     <p className="text-sm font-semibold">{u.name || u.email}</p>
                     <p className="text-xs text-gray-500">{u.email} · {u.role}</p>
@@ -108,18 +160,35 @@ export default function WalletManagement() {
                 <div className="rounded-lg bg-gray-50 p-2"><p className="text-sm font-bold">₹{wallet.claimableBalance}</p><p className="text-[10px] text-gray-500">Claimable</p></div>
               </div>
 
-              <form onSubmit={topUp} className="mt-4 space-y-2">
-                <input type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} className="input" placeholder="Top up amount (₹)" required />
-                <input value={note} onChange={(e) => setNote(e.target.value)} className="input" placeholder="Reference (bank txn ID)" />
-                <button type="submit" className="btn-primary w-full">Credit wallet</button>
-              </form>
+              {tab === 'topup' ? (
+                <form onSubmit={topUp} className="mt-4 space-y-2">
+                  <input type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} className="input" placeholder="Top up amount (₹)" required />
+                  <input value={note} onChange={(e) => setNote(e.target.value)} className="input" placeholder="Reference (bank txn ID)" />
+                  <button type="submit" className="btn-primary w-full">Credit wallet</button>
+                </form>
+              ) : (
+                <form onSubmit={deduct} className="mt-4 space-y-2">
+                  {wallet.availableBalance <= 0 && (
+                    <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-600">
+                      <AlertTriangle className="h-3.5 w-3.5" /> User has no available balance to deduct
+                    </div>
+                  )}
+                  <input type="number" min="1" max={wallet.availableBalance} value={amount} onChange={(e) => setAmount(e.target.value)} className="input" placeholder="Deduct amount (₹)" required />
+                  <input value={note} onChange={(e) => setNote(e.target.value)} className="input" placeholder="Reason for deduction (required)" required />
+                  <button type="submit" disabled={wallet.availableBalance <= 0} className="btn-primary w-full bg-red-600 hover:bg-red-700">Deduct from wallet</button>
+                </form>
+              )}
 
               <div className="mt-4">
-                <p className="mb-2 text-xs font-semibold text-gray-500">Ledger (last 10)</p>
-                <div className="space-y-1">
-                  {ledger.slice(0, 10).map((t) => (
+                <p className="mb-2 text-xs font-semibold text-gray-500">Ledger (last 20)</p>
+                <div className="max-h-64 space-y-1 overflow-y-auto">
+                  {ledger.slice(0, 20).map((t) => (
                     <div key={t._id} className="flex justify-between rounded-lg bg-gray-50 px-3 py-2 text-xs">
-                      <span>{t.type} · {t.status}</span>
+                      <div>
+                        <span className="font-semibold capitalize">{t.type.replace(/_/g, ' ')}</span>
+                        <span className="ml-2 text-gray-400">{t.status}</span>
+                        {t.referenceNote && <span className="ml-2 text-gray-400">· {t.referenceNote}</span>}
+                      </div>
                       <span className="font-semibold">₹{t.amount}</span>
                     </div>
                   ))}
@@ -148,12 +217,42 @@ export default function WalletManagement() {
                   <p className="font-bold text-brand">₹{w.amount}</p>
                 </div>
                 <div className="mt-3 flex gap-2">
-                  <button type="button" onClick={() => pay(w._id)} className="btn-primary flex-1 bg-green-600 text-xs hover:bg-green-700">Mark paid</button>
-                  <button type="button" onClick={() => deny(w._id)} className="btn-secondary flex-1 text-xs text-red-600">Deny</button>
+                  <button type="button" onClick={() => setConfirmPay(w)} className="btn-primary flex-1 bg-green-600 text-xs hover:bg-green-700">Mark paid</button>
+                  <button type="button" onClick={() => setConfirmDeny(w)} className="btn-secondary flex-1 text-xs text-red-600">Deny</button>
                 </div>
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {/* Confirm Pay Modal */}
+      {confirmPay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setConfirmPay(null)} />
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+            <h3 className="font-bold">Confirm Payout</h3>
+            <p className="mt-2 text-sm text-gray-600">Pay ₹{confirmPay.amount} to {confirmPay.userId?.name}?</p>
+            <div className="mt-4 flex gap-2">
+              <button type="button" onClick={() => setConfirmPay(null)} className="btn-secondary flex-1">Cancel</button>
+              <button type="button" onClick={() => pay(confirmPay._id)} className="btn-primary flex-1 bg-green-600 hover:bg-green-700">Confirm Pay</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Deny Modal */}
+      {confirmDeny && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setConfirmDeny(null)} />
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+            <h3 className="font-bold">Deny Payout</h3>
+            <p className="mt-2 text-sm text-gray-600">Deny ₹{confirmDeny.amount} payout request from {confirmDeny.userId?.name}?</p>
+            <div className="mt-4 flex gap-2">
+              <button type="button" onClick={() => setConfirmDeny(null)} className="btn-secondary flex-1">Cancel</button>
+              <button type="button" onClick={() => deny(confirmDeny._id)} className="btn-primary flex-1 bg-red-600 hover:bg-red-700">Confirm Deny</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

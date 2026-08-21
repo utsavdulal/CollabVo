@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { MessageSquare, Search, Send, Plus } from 'lucide-react';
 import { api } from '../lib/api.js';
+import { useMessagesSSE } from '../lib/useMessagesSSE.js';
 import { Avatar } from '../components/ui/Avatar.jsx';
 import { Spinner } from '../components/ui/Spinner.jsx';
 import { useAuthStore } from '../store/authStore.js';
@@ -17,7 +18,7 @@ export default function Messages() {
   const [users, setUsers] = useState([]);
   const [q, setQ] = useState('');
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     Promise.all([api('/messages'), api('/messages/requests')])
       .then(([c, r]) => {
@@ -26,9 +27,35 @@ export default function Messages() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  };
+  }, []);
 
-  useEffect(load, []);
+  useEffect(load, [load]);
+
+  // Real-time updates via SSE
+  useMessagesSSE({
+    onConversationUpdated: (data) => {
+      setConversations((prev) => {
+        const idx = prev.findIndex((c) => String(c._id) === String(data.conversationId));
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = {
+            ...updated[idx],
+            lastMessage: data.lastMessage,
+            lastMessageAt: data.lastMessageAt,
+            unreadCount: (updated[idx].unreadCount || 0) + (String(data.senderId) !== String(user.id) ? 1 : 0)
+          };
+          updated.sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt));
+          return updated;
+        }
+        // New conversation — reload to get full data
+        load();
+        return prev;
+      });
+    },
+    onConversationAccepted: () => {
+      load();
+    }
+  });
 
   const searchUsers = async (e) => {
     const term = e.target.value;
@@ -39,11 +66,14 @@ export default function Messages() {
   };
 
   const startChat = async (toUserId) => {
-    await api('/messages', { method: 'POST', body: { toUserId, text: 'Hi! Let\'s connect on Collavo.' } });
+    const data = await api('/messages', { method: 'POST', body: { toUserId, text: 'Hi! Let\'s connect on Collavo.' } });
     setComposing(false);
+    setQ('');
+    setUsers([]);
     load();
-    const conv = conversations.find((c) => c.participantIds?.some((p) => String(p._id) === String(toUserId)));
-    if (conv) navigate(`/messages/${conv._id}`);
+    if (data.conversation?._id) {
+      navigate(`/messages/${data.conversation._id}`);
+    }
   };
 
   const acceptRequest = async (id) => {
@@ -138,23 +168,31 @@ export default function Messages() {
         <div className="space-y-2">
           {list.map((conv) => {
             const other = otherOf(conv);
+            const unread = conv.unreadCount || 0;
             return (
               <Link
                 key={conv._id}
                 to={`/messages/${conv._id}`}
                 className="flex items-center gap-3 rounded-xl border border-zinc-200/80 bg-white p-3.5 shadow-xs hover:border-zinc-300 hover:shadow-sm transition-all"
               >
-                <Avatar user={other} size="md" />
+                <div className="relative">
+                  <Avatar user={other} size="md" />
+                  {unread > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-zinc-900 px-1 text-[9px] font-bold text-white">
+                      {unread > 99 ? '99+' : unread}
+                    </span>
+                  )}
+                </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
-                    <p className="truncate text-xs font-bold text-zinc-900">{other?.name || 'User'}</p>
+                    <p className={`truncate text-xs ${unread > 0 ? 'font-extrabold text-zinc-900' : 'font-bold text-zinc-900'}`}>{other?.name || 'User'}</p>
                     {conv.lastMessageAt && (
                       <span className="text-[10px] text-zinc-400">
                         {new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
                   </div>
-                  <p className="truncate text-xs text-zinc-500 mt-0.5">{conv.lastMessage || 'No messages yet'}</p>
+                  <p className={`truncate text-xs mt-0.5 ${unread > 0 ? 'font-semibold text-zinc-700' : 'text-zinc-500'}`}>{conv.lastMessage || 'No messages yet'}</p>
                 </div>
                 {conv.isRequest && (
                   <button

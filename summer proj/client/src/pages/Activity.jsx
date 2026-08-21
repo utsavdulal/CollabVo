@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Bell, Wallet, ShieldCheck, FileText, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Bell, Wallet, ShieldCheck, FileText } from 'lucide-react';
 import { api } from '../lib/api.js';
+import { useNotificationStore } from '../store/notificationStore.js';
 import { Spinner } from '../components/ui/Spinner.jsx';
 
 const ICONS = {
@@ -13,45 +14,15 @@ const ICONS = {
 export default function Activity() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { markAllRead } = useNotificationStore();
 
   useEffect(() => {
-    // Fetch initial notifications
     api('/notifications')
       .then((d) => setNotifications(d.notifications || []))
       .catch(() => {})
       .finally(() => setLoading(false));
-    api('/notifications/read', { method: 'POST' }).catch(() => {});
-
-    // Connect to SSE stream for real-time updates
-    const eventSource = new EventSource('/api/notifications/stream');
-
-    eventSource.onopen = () => {
-      console.log('Connected to notification stream');
-    };
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = event.data.trim();
-        if (data === ':connected' || !data) return;
-        
-        const notification = JSON.parse(data);
-        // Prepend new notification to the list
-        setNotifications(prev => [notification, ...prev]);
-      } catch (err) {
-        console.error('Failed to parse notification:', err);
-      }
-    };
-
-    eventSource.onerror = () => {
-      console.error('Notification stream error');
-      eventSource.close();
-    };
-
-    // Cleanup on unmount
-    return () => {
-      eventSource.close();
-    };
-  }, []);
+    markAllRead();
+  }, [markAllRead]);
 
   return (
     <div className="pb-12 max-w-2xl">

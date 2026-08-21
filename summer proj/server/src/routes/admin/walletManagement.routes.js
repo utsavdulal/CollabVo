@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import mongoose from 'mongoose';
 import { User } from '../../models/User.js';
 import { Transaction } from '../../models/Transaction.js';
 import { AdminAuditLog } from '../../models/AdminAuditLog.js';
 import { requireAdminAuth } from '../../middleware/adminAuth.js';
 import { validate } from '../../middleware/validate.js';
 import { asyncHandler, ApiError } from '../../middleware/error.js';
-import { getWallet, topUpWallet, payWithdrawal, denyWithdrawal } from '../../services/escrowService.js';
+import { getOrCreateWallet, getWallet, topUpWallet, payWithdrawal, denyWithdrawal } from '../../services/escrowService.js';
 import { notifyUser } from '../../services/notificationService.js';
 
 const router = Router();
@@ -84,6 +85,49 @@ router.post('/withdrawals/:id/deny', asyncHandler(async (req, res) => {
     relatedId: transaction._id
   });
   res.json({ transaction });
+}));
+
+const deductSchema = z.object({
+  userId: z.string().regex(/^[0-9a-fA-F]{24}$/),
+  amount: z.number().positive(),
+  reason: z.string().min(1).max(200)
+});
+
+router.post('/deduct', validate(deductSchema), asyncHandler(async (req, res) => {
+  const { userId, amount, reason } = req.body;
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    result = await session.withTransaction(async () => {
+      const wallet = await getOrCreateWallet(userId, session);
+      if (wallet.availableBalance < amount) {
+        throw new ApiError(400, 'Insufficient available balance');
+      }
+      wallet.availableBalance -= amount;
+      await wallet.save({ session });
+
+      const txn = await Transaction.create([{
+        type: 'admin_deduct',
+        userId,
+        amount,
+        status: 'completed',
+        adminId: req.user._id,
+        referenceNote: reason
+      }], { session });
+      return { wallet, transaction: txn[0] };
+    });
+  } finally {
+    session.endSession();
+  }
+
+  await writeAudit(req.user, 'wallet_deduct', 'User', userId, { amount, reason, transactionId: result.transaction._id });
+  await notifyUser(userId, {
+    type: 'wallet',
+    message: `₹${amount} was deducted from your wallet. Reason: ${reason}`,
+    relatedId: result.transaction._id
+  });
+
+  res.status(201).json(result);
 }));
 
 export default router;

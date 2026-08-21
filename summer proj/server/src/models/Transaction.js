@@ -6,7 +6,7 @@ const transactionSchema = new Schema(
   {
     type: {
       type: String,
-      enum: ['topup', 'escrow_lock', 'escrow_release', 'withdrawal'],
+      enum: ['topup', 'escrow_lock', 'escrow_release', 'withdrawal', 'admin_deduct', 'escrow_refund'],
       required: true
     },
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },

@@ -2,6 +2,7 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore.js';
 import { useThemeStore } from '../../store/themeStore.js';
+import { useNotificationStore } from '../../store/notificationStore.js';
 import { TopBar } from './TopBar.jsx';
 import { BottomNav } from './BottomNav.jsx';
 import { Sidebar } from './Sidebar.jsx';
@@ -11,13 +12,17 @@ import { MenuPanel } from './MenuPanel.jsx';
 export function ProtectedLayout() {
   const { user } = useAuthStore();
   const { initTheme } = useThemeStore();
+  const { fetchUnread, connect, disconnect } = useNotificationStore();
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     initTheme();
-  }, [initTheme]);
+    fetchUnread();
+    connect();
+    return () => disconnect();
+  }, [initTheme, fetchUnread, connect, disconnect]);
 
   if (!user) {
     navigate('/auth', { replace: true });

@@ -4,6 +4,7 @@ import {
   Headphones, Scale, Settings, LogOut, ShieldCheck
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore.js';
+import { useNotificationStore } from '../../store/notificationStore.js';
 import { Avatar } from '../ui/Avatar.jsx';
 import { useState } from 'react';
 
@@ -11,7 +12,7 @@ const navItems = [
   { to: '/home', label: 'Explore', icon: Compass, end: true },
   { to: '/proposals', label: 'Proposals', icon: FileText },
   { to: '/messages', label: 'Messages', icon: MessageSquare },
-  { to: '/activity', label: 'Activity', icon: Bell },
+  { to: '/activity', label: 'Activity', icon: Bell, badge: true },
   { to: '/wallet', label: 'Wallet', icon: Wallet },
   { to: '/work', label: 'Your Work', icon: Briefcase },
   { to: '/settings', label: 'Settings', icon: Settings }
@@ -24,6 +25,7 @@ const secondaryItems = [
 
 export function Sidebar() {
   const { user, logout } = useAuthStore();
+  const { unread } = useNotificationStore();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
 
@@ -44,7 +46,7 @@ export function Sidebar() {
       {/* Main Navigation */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
         <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Navigation</p>
-        {navItems.map(({ to, label, icon: Icon, end }) => (
+        {navItems.map(({ to, label, icon: Icon, end, badge }) => (
           <NavLink
             key={to}
             to={to}
@@ -57,7 +59,14 @@ export function Sidebar() {
               }`
             }
           >
-            <Icon className="h-4 w-4 shrink-0" />
+            <div className="relative shrink-0">
+              <Icon className="h-4 w-4" />
+              {badge && unread > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-1 text-[8px] font-bold text-white">
+                  {unread > 99 ? '99+' : unread}
+                </span>
+              )}
+            </div>
             <span>{label}</span>
           </NavLink>
         ))}

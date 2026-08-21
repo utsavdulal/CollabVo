@@ -1,11 +1,13 @@
 import { NavLink } from 'react-router-dom';
 import { Home, Briefcase, FileText, MessageSquare, Bell, Plus } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore.js';
+import { useNotificationStore } from '../../store/notificationStore.js';
 import { useState } from 'react';
 import { PostEventModal } from '../ui/PostEventModal.jsx';
 
 export function BottomNav() {
   const { user } = useAuthStore();
+  const { unread } = useNotificationStore();
   const isBusiness = user?.role === 'business';
   const [postOpen, setPostOpen] = useState(false);
 
@@ -96,7 +98,14 @@ export function BottomNav() {
           >
             {({ isActive }) => (
               <>
-                <Bell className="h-5 w-5" />
+                <div className="relative">
+                  <Bell className="h-5 w-5" />
+                  {unread > 0 && (
+                    <span className="absolute -top-1 -right-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-1 text-[8px] font-bold text-white">
+                      {unread > 99 ? '99+' : unread}
+                    </span>
+                  )}
+                </div>
                 <span className="text-[10px] font-bold">Activity</span>
                 {isActive && (
                   <span className="absolute -bottom-1 h-1 w-1 rounded-full bg-[#6366f1] dark:bg-[#818cf8]" />
@@ -122,8 +131,8 @@ export function BottomNav() {
         { to: '/home', label: 'Home', icon: Home },
         { to: '/proposals', label: 'Proposals', icon: FileText },
         { to: '/messages', label: 'Messages', icon: MessageSquare },
-        { to: '/activity', label: 'Activity', icon: Bell }
-      ].map(({ to, label, icon: Icon }) => (
+        { to: '/activity', label: 'Activity', icon: Bell, hasBadge: true }
+      ].map(({ to, label, icon: Icon, hasBadge }) => (
         <NavLink
           key={to}
           to={to}
@@ -135,7 +144,14 @@ export function BottomNav() {
         >
           {({ isActive }) => (
             <>
-              <Icon className="h-5 w-5" />
+              <div className="relative">
+                <Icon className="h-5 w-5" />
+                {hasBadge && unread > 0 && (
+                  <span className="absolute -top-1 -right-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-1 text-[8px] font-bold text-white">
+                    {unread > 99 ? '99+' : unread}
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] font-bold">{label}</span>
               {isActive && (
                 <span className="absolute -bottom-1 h-1 w-1 rounded-full bg-[#6366f1] dark:bg-[#818cf8]" />
