@@ -57,6 +57,26 @@ async function main() {
   await api('/api/users/setup-profile', { method: 'POST', token: creator.accessToken, body: { name: 'Riya Creator', category: 'beauty', bio: 'makeup', location: loc } });
   ok(true, 'profiles saved');
 
+  console.log('\n== 2b. Creator Payment QR & Payout info ==');
+  const qrFd = new FormData();
+  qrFd.append('qrCode', makeFakeFile('esewa-qr.png', 'image/png'));
+  const qrRes = await api('/api/users/payment-qr', { method: 'POST', token: creator.accessToken, formData: qrFd });
+  ok(!!qrRes.qrCodeURL, 'creator uploaded payment QR code');
+
+  const updateRes = await api('/api/users/me', {
+    method: 'PATCH',
+    token: creator.accessToken,
+    body: {
+      paymentDetails: {
+        provider: 'esewa',
+        accountName: 'Riya Creator',
+        accountNumber: '9801234567',
+        notes: 'eSewa digital wallet'
+      }
+    }
+  });
+  ok(updateRes.user.paymentDetails?.provider === 'esewa' && updateRes.user.paymentDetails?.accountNumber === '9801234567', 'creator payment details saved');
+
   console.log('\n== 3. Business verification ==');
   const fd = new FormData();
   fd.append('documents', makeFakeFile('reg.png', 'image/png'));
@@ -97,9 +117,20 @@ async function main() {
   const bizWallet2 = await api('/api/wallet', { token: biz.accessToken });
   ok(bizWallet2.wallet.availableBalance === 4000 && bizWallet2.wallet.escrowHeld === 1000, `funds locked: available=${bizWallet2.wallet.availableBalance} escrow=${bizWallet2.wallet.escrowHeld}`);
 
-  console.log('\n== 7. Completion -> escrow release ==');
-  await api(`/api/proposals/${prop.proposal._id}/complete`, { method: 'PATCH', token: biz.accessToken });
-  const released = await api(`/api/proposals/${prop.proposal._id}/complete`, { method: 'PATCH', token: creator.accessToken });
+  console.log('\n== 7. Creator starts -> submits -> business requests revisions -> resubmits -> approves -> escrow release ==');
+  const started = await api(`/api/proposals/${prop.proposal._id}/start`, { method: 'PATCH', token: creator.accessToken });
+  ok(started.proposal.workStarted === true, 'creator marked work started');
+
+  const submitted = await api(`/api/proposals/${prop.proposal._id}/submit`, { method: 'PATCH', token: creator.accessToken, body: { deliverableURL: 'https://instagram.com/reel/123', deliverableNotes: 'Reel ready' } });
+  ok(submitted.proposal.creatorConfirmedComplete === true && submitted.proposal.deliverableURL === 'https://instagram.com/reel/123', 'creator submitted deliverables');
+
+  const revised = await api(`/api/proposals/${prop.proposal._id}/request-revision`, { method: 'PATCH', token: biz.accessToken, body: { revisionNotes: 'Please add logo' } });
+  ok(revised.proposal.revisionRequested === true && revised.proposal.creatorConfirmedComplete === false, 'business requested revision');
+
+  const resubmitted = await api(`/api/proposals/${prop.proposal._id}/submit`, { method: 'PATCH', token: creator.accessToken, body: { deliverableURL: 'https://instagram.com/reel/123-v2', deliverableNotes: 'Added logo' } });
+  ok(resubmitted.proposal.creatorConfirmedComplete === true && resubmitted.proposal.revisionRequested === false, 'creator resubmitted revised work');
+
+  const released = await api(`/api/proposals/${prop.proposal._id}/complete`, { method: 'PATCH', token: biz.accessToken });
   ok(released.proposal.escrowStatus === 'released', `escrow released (status=${released.proposal.escrowStatus})`);
 
   const creatorWallet = await api('/api/wallet', { token: creator.accessToken });
@@ -112,9 +143,10 @@ async function main() {
   const withdrawals = await adminApi('/wallet/withdrawals', { token: adminLogin.accessToken });
   const myWithdrawal = withdrawals.transactions.find(t => String(t.userId?._id || t.userId) === String(creator.user.id));
   ok(!!myWithdrawal && myWithdrawal.status === 'pending', 'payout pending in admin panel');
+  ok(myWithdrawal.userId?.paymentDetails?.provider === 'esewa' && !!myWithdrawal.userId?.paymentDetails?.qrCodeURL, 'admin withdrawal includes creator QR and payment details');
   await adminApi(`/wallet/withdrawals/${myWithdrawal._id}/pay`, { method: 'POST', token: adminLogin.accessToken });
   const creatorWallet2 = await api('/api/wallet', { token: creator.accessToken });
-  ok(creatorWallet2.wallet.claimableBalance === 0, 'payout deducted from claimable');
+  ok(creatorWallet2.wallet.claimableBalance === 0 && creatorWallet2.wallet.availableBalance === 0, `payout deducted from claimable & available balance (available=${creatorWallet2.wallet.availableBalance})`);
 
   console.log('\n== 9. Guard: unverified business cannot send proposal ==');
   const badBiz = await api('/api/auth/register', { method: 'POST', body: { email: `badbiz${stamp}@t.com`, password: 'password123', role: 'business' } });
@@ -126,12 +158,43 @@ async function main() {
   ok(guardBlocked, 'unverified business blocked from sending proposal');
 
   console.log('\n== 10. Creator-initiated proposal -> escrow release ==');
-  const evt2 = await api('/api/events', { method: 'POST', token: biz.accessToken, body: { title: 'Creator Apply Campaign', category: 'retail', platform: 'instagram', budget: 3000, location: { coordinates: [77.2, 28.6], address: 'New Delhi' } } });
+  const evt2 = await api('/api/events', {
+    method: 'POST',
+    token: biz.accessToken,
+    body: {
+      title: 'Creator Apply Campaign',
+      category: 'retail',
+      platform: 'instagram',
+      budget: 3000,
+      deliverables: { videos: 1, posts: 2, storyMentions: 1 },
+      creatorsNeeded: 1,
+      location: { coordinates: [77.2, 28.6], address: 'New Delhi' }
+    }
+  });
+  ok(evt2.event.deliverables?.videos === 1 && evt2.event.creatorsNeeded === 1, 'event created with deliverables and creatorsNeeded');
+
   const prop2 = await api('/api/proposals', { method: 'POST', token: creator.accessToken, body: { toUserId: biz.user.id, eventId: evt2.event._id, offerAmount: 500, message: 'applying to your campaign' } });
   ok(prop2.proposal.status === 'pending' && String(prop2.proposal.fromUserId?._id || prop2.proposal.fromUserId) === String(creator.user.id), 'creator applied to business campaign');
 
+  // Test repeat application prevention
+  let dupBlocked = false;
+  try {
+    await api('/api/proposals', { method: 'POST', token: creator.accessToken, body: { toUserId: biz.user.id, eventId: evt2.event._id, offerAmount: 500, message: 'applying again' } });
+  } catch {
+    dupBlocked = true;
+  }
+  ok(dupBlocked, 'creator blocked from submitting duplicate proposal to same campaign');
+
   const accepted2 = await api(`/api/proposals/${prop2.proposal._id}/accept`, { method: 'PATCH', token: biz.accessToken });
   ok(accepted2.proposal.escrowStatus === 'held', `escrow held on creator-initiated proposal (status=${accepted2.proposal.escrowStatus})`);
+
+  // Check event is filled and hidden from public explore
+  const freshEvt2 = await api(`/api/events/${evt2.event._id}`, { token: creator.accessToken });
+  ok(freshEvt2.event.creatorsHired === 1 && freshEvt2.event.status === 'filled', 'event slots filled (creatorsHired=1, status=filled)');
+
+  const publicEvents = await api('/api/events', { token: creator.accessToken });
+  const inPublic = publicEvents.events.some(e => String(e._id) === String(evt2.event._id));
+  ok(!inPublic, 'filled campaign automatically hidden from public explore feed');
 
   const bizWallet4 = await api('/api/wallet', { token: biz.accessToken });
   ok(bizWallet4.wallet.availableBalance === 3500 && bizWallet4.wallet.escrowHeld === 500, `business funds locked again: available=${bizWallet4.wallet.availableBalance} escrow=${bizWallet4.wallet.escrowHeld}`);

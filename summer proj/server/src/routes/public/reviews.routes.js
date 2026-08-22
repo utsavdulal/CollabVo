@@ -11,13 +11,19 @@ const router = Router();
 router.use(requireAuth);
 
 const reviewSchema = z.object({
-  revieweeId: z.string().regex(/^[0-9a-fA-F]{24}$/),
+  revieweeId: z.string().regex(/^[0-9a-fA-F]{24}$/).optional(),
+  targetUserId: z.string().regex(/^[0-9a-fA-F]{24}$/).optional(),
   rating: z.number().min(1).max(5),
   comment: z.string().max(500).default('')
+}).refine(data => data.revieweeId || data.targetUserId, {
+  message: 'revieweeId or targetUserId is required',
+  path: ['revieweeId']
 });
 
 router.post('/', validate(reviewSchema), asyncHandler(async (req, res) => {
-  const { revieweeId, rating, comment } = req.body;
+  const revieweeId = req.body.revieweeId || req.body.targetUserId;
+  const rating = Number(req.body.rating);
+  const comment = String(req.body.comment || '').trim();
   if (String(revieweeId) === String(req.user._id)) throw new ApiError(400, 'Cannot review yourself');
 
   const existing = await Review.findOne({ reviewerId: req.user._id, revieweeId });

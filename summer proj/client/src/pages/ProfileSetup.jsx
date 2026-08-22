@@ -12,7 +12,7 @@ export default function ProfileSetup() {
     name: '',
     bio: '',
     category: '',
-    location: { coordinates: [77.2, 28.6], address: '' },
+    location: { coordinates: [0, 0], address: '', country: 'Nepal', state: 'Bagmati Province', city: '' },
     photoURL: ''
   });
   const [preview, setPreview] = useState(user?.photoURL || '');

@@ -408,84 +408,22 @@ export default function Proposals() {
                 )}
 
                 {/* Action Buttons */}
-
-                <div className="mt-4 flex flex-wrap gap-2 pt-3 border-t border-zinc-100">
+                <div className="mt-4 flex items-center justify-between gap-2 pt-3 border-t border-zinc-100 dark:border-[#262a3e]">
                   <Link
                     to={`/messages`}
+                    onClick={(e) => e.stopPropagation()}
                     className="btn-secondary py-1.5 px-3 text-xs"
                   >
                     <MessageCircle className="h-3.5 w-3.5" /> Message
                   </Link>
 
-                {canAccept && (
-                    <button
-                      type="button"
-                      onClick={() => act(p._id, 'accept')}
-                      disabled={actioningId === p._id}
-                      className="btn-primary flex-1 py-1.5 text-xs disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                      {actioningId === p._id ? (
-                        <>
-                          <Spinner size="sm" />
-                          Accepting...
-                        </>
-                      ) : (
-                        <>
-                          <Check className="h-3.5 w-3.5" /> Accept & Secure Escrow
-                        </>
-                      )}
-                    </button>
-                  )}
-
-                  {canReject && (
-                    <button
-                      type="button"
-                      onClick={() => act(p._id, 'reject')}
-                      disabled={actioningId === p._id}
-                      className="btn-secondary py-1.5 px-3 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                    >
-                      {actioningId === p._id ? (
-                        <>
-                          <Spinner size="sm" />
-                          Declining...
-                        </>
-                      ) : (
-                        <>
-                          <X className="h-3.5 w-3.5" /> Decline
-                        </>
-                      )}
-                    </button>
-                  )}
-
-                  {canComplete && (
-                    <button
-                      type="button"
-                      onClick={() => act(p._id, 'complete')}
-                      disabled={actioningId === p._id}
-                      className="btn-primary flex-1 bg-emerald-700 hover:bg-emerald-800 border-emerald-700 py-1.5 text-xs disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                      {actioningId === p._id ? (
-                        <>
-                          <Spinner size="sm" />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <Flag className="h-3.5 w-3.5" /> Confirm Work Delivered & Release Escrow
-                        </>
-                      )}
-                    </button>
-                  )}
-
-                  {isCompleted && (
-                    <button
-                      type="button"
-                      onClick={() => setReviewingUser(other)}
-                      className="btn-secondary flex-1 py-1.5 text-xs text-amber-800 bg-amber-50/60 hover:bg-amber-100"
-                    >
-                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" /> Rate & Review Partner
-                    </button>
-                  )}
+                  <Link
+                    to={`/proposal/${p._id}`}
+                    className="btn-primary py-1.5 px-4 text-xs font-bold flex items-center gap-1"
+                  >
+                    <span>{p.status === 'pending' ? 'Review Proposal' : 'View Proposal Details'}</span>
+                    <span>&rarr;</span>
+                  </Link>
                 </div>
               </div>
             );

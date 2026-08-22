@@ -7,17 +7,20 @@ const ALLOWED_MIME = new Map([
   ['image/jpg', 'jpg'],
   ['image/png', 'png'],
   ['image/webp', 'webp'],
-  ['application/pdf', 'pdf']
+  ['application/pdf', 'pdf'],
+  ['video/mp4', 'mp4'],
+  ['video/quicktime', 'mov'],
+  ['video/webm', 'webm']
 ]);
 
 const storage = multer.memoryStorage();
 
 export const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter(req, file, cb) {
     if (!ALLOWED_MIME.has(file.mimetype)) {
-      return cb(new ApiError(400, 'Only JPG, PNG, WEBP or PDF files are allowed'));
+      return cb(new ApiError(400, 'Only JPG, PNG, WEBP, PDF, MP4, MOV, or WEBM files are allowed'));
     }
     cb(null, true);
   }

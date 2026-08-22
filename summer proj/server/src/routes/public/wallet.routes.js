@@ -11,7 +11,7 @@ const router = Router();
 router.use(requireAuth);
 
 const payoutSchema = z.object({
-  amount: z.number().positive()
+  amount: z.number().min(100, 'Minimum withdrawal amount is ₹100')
 });
 
 const topUpRequestSchema = z.object({
@@ -21,6 +21,16 @@ const topUpRequestSchema = z.object({
 
 router.get('/', asyncHandler(async (req, res) => {
   const wallet = await getWallet(req.user._id);
+
+  if (req.user.role === 'creator') {
+    const { Proposal } = await import('../../models/Proposal.js');
+    const heldProposals = await Proposal.find({
+      $or: [{ fromUserId: req.user._id }, { toUserId: req.user._id }],
+      escrowStatus: 'held'
+    });
+    wallet.escrowHeld = heldProposals.reduce((sum, p) => sum + (p.offerAmount || 0), 0);
+  }
+
   const transactions = await Transaction.find({ userId: req.user._id })
     .sort({ createdAt: -1 })
     .populate('counterpartyId', 'name role')

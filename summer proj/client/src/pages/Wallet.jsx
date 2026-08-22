@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Wallet as WalletIcon, Lock, ArrowDownLeft, ArrowUpRight, ShieldCheck, Clock, CheckCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Wallet as WalletIcon, Lock, ArrowDownLeft, ArrowUpRight, ShieldCheck, Clock, CheckCircle, QrCode, AlertCircle, ExternalLink, Building2 } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { useAuthStore } from '../store/authStore.js';
 import { Spinner } from '../components/ui/Spinner.jsx';
+import { getProviderConfig } from '../lib/paymentData.jsx';
 
 export default function WalletPage() {
   const { user } = useAuthStore();
@@ -33,7 +35,8 @@ export default function WalletPage() {
     e.preventDefault();
     setError('');
     setSuccess('');
-    if (!amount || Number(amount) <= 0) return setError('Please enter a valid payout amount');
+    if (!amount || Number(amount) < 100) return setError('Minimum withdrawal amount is ₹100');
+    if (Number(amount) > wallet.availableBalance) return setError('Amount exceeds your available balance');
     setBusy(true);
     try {
       await api('/wallet/payout', { method: 'POST', body: { amount: Number(amount) } });
@@ -90,7 +93,7 @@ export default function WalletPage() {
       <div className="rounded-3xl bg-zinc-900 p-7 text-white shadow-md">
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-            {user?.role === 'business' ? 'Available Budget' : 'Wallet Balance'}
+            {user?.role === 'business' ? 'Available Budget' : 'Available Wallet Balance'}
           </span>
           <span className="rounded-full bg-zinc-800 px-3 py-1 text-[11px] font-bold text-zinc-300">
             INR Virtual Currency
@@ -100,9 +103,14 @@ export default function WalletPage() {
         <p className="mt-3 text-4xl font-extrabold tracking-tight">
           ₹{wallet.availableBalance.toLocaleString()}
         </p>
+        <p className="mt-1 text-[11px] text-zinc-400">
+          {user?.role === 'business'
+            ? 'Funds ready to allocate to creator campaigns'
+            : 'Available balance ready to be withdrawn to your account'}
+        </p>
 
         <div className="mt-6 grid grid-cols-2 gap-3 border-t border-zinc-800 pt-5">
-          {user?.role === 'business' && (
+          {user?.role === 'business' ? (
             <div className="rounded-2xl bg-zinc-800/80 p-3.5">
               <div className="flex items-center gap-1.5 text-xs text-zinc-400 font-medium">
                 <Lock className="h-3.5 w-3.5 text-amber-400" />
@@ -113,18 +121,16 @@ export default function WalletPage() {
               </p>
               <p className="mt-0.5 text-[10px] text-zinc-500">Locked until delivery confirmation</p>
             </div>
-          )}
-
-          {user?.role === 'creator' && (
+          ) : (
             <div className="rounded-2xl bg-zinc-800/80 p-3.5">
               <div className="flex items-center gap-1.5 text-xs text-zinc-400 font-medium">
-                <CheckCircle className="h-3.5 w-3.5 text-emerald-400" />
-                <span>Claimable Balance</span>
+                <Lock className="h-3.5 w-3.5 text-amber-400" />
+                <span>Payment on Hold</span>
               </div>
               <p className="mt-1 text-lg font-bold text-white">
-                ₹{wallet.claimableBalance.toLocaleString()}
+                ₹{(wallet.escrowHeld || 0).toLocaleString()}
               </p>
-              <p className="mt-0.5 text-[10px] text-zinc-500">Ready to request bank payout</p>
+              <p className="mt-0.5 text-[10px] text-zinc-500">Released after work is completed &amp; confirmed by business</p>
             </div>
           )}
 
@@ -142,37 +148,126 @@ export default function WalletPage() {
       </div>
 
       {/* Creator Payout Request Card */}
-      {user?.role === 'creator' && wallet.claimableBalance > 0 && (
+      {user?.role === 'creator' && (
         <form
           onSubmit={requestPayout}
           className="mt-6 rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-xs space-y-3"
         >
-          <h2 className="text-sm font-bold text-zinc-900">Request Payout</h2>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-bold text-zinc-900">Request Payout</h2>
+              <span className="rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+                Min. ₹100
+              </span>
+            </div>
+            <Link to="/settings" className="text-[11px] font-bold text-[#6366f1] hover:underline flex items-center gap-1">
+              <QrCode className="h-3.5 w-3.5" /> Payout Settings
+            </Link>
+          </div>
           <p className="text-xs text-zinc-500">
-            Convert your completed collaboration earnings into real money via bank or mobile transfer.
+            Withdraw any amount above ₹100 from your available balance via eSewa, Khalti, Fonepay, or Bank Transfer.
           </p>
 
-          <div className="relative">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-zinc-400">₹</span>
-            <input
-              type="number"
-              min="1"
-              max={wallet.claimableBalance}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="input pl-8 text-sm font-semibold"
-              placeholder={`Up to ₹${wallet.claimableBalance.toLocaleString()}`}
-            />
-          </div>
+          {/* Payment Method Preview */}
+          {(() => {
+            const prov = user?.paymentDetails?.provider || 'esewa';
+            const provConfig = getProviderConfig(prov);
+            const ProvLogo = provConfig.logo;
+            const isBank = prov === 'bank';
+            const hasConfig = isBank
+              ? Boolean(user?.paymentDetails?.accountNumber)
+              : Boolean(user?.paymentDetails?.qrCodeURL || user?.paymentDetails?.accountNumber);
 
-          {error && <p className="text-xs text-red-600 font-medium">{error}</p>}
-          {success && <p className="text-xs text-emerald-600 font-medium">{success}</p>}
+            if (!hasConfig) {
+              return (
+                <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-800">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+                  <div>
+                    <p className="font-bold">No payout destination configured for {provConfig.label}</p>
+                    <p className="text-[11px] text-amber-700 mt-0.5">
+                      {isBank
+                        ? 'Add your bank account details in Settings so the admin can transfer funds.'
+                        : `Add your ${provConfig.label} QR code or mobile number in Settings.`}
+                    </p>
+                    <Link to="/settings" className="mt-1.5 inline-block text-[11px] font-bold text-amber-900 underline">
+                      + Configure in Settings
+                    </Link>
+                  </div>
+                </div>
+              );
+            }
 
-          <button type="submit" disabled={busy} className="btn-primary w-full py-2.5 text-xs">
-            {busy ? 'Processing request...' : 'Submit Payout Request'}
-          </button>
+            return (
+              <div className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs">
+                {isBank ? (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-700 shrink-0">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                ) : user?.paymentDetails?.qrCodeURL ? (
+                  <img
+                    src={user.paymentDetails.qrCodeURL}
+                    alt={`${prov} QR`}
+                    className="h-10 w-10 rounded-lg object-contain bg-white border border-zinc-200 p-0.5 shrink-0"
+                  />
+                ) : (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-200 text-zinc-500 shrink-0">
+                    <ProvLogo className="h-6 w-6" />
+                  </div>
+                )}
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-zinc-900 capitalize">{provConfig.label}</span>
+                    {isBank && user?.paymentDetails?.bankName && (
+                      <span className="text-[11px] text-blue-600 font-semibold truncate">({user.paymentDetails.bankName})</span>
+                    )}
+                    <span className="text-[10px] text-emerald-600 font-semibold">(Active Destination)</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-500 truncate">
+                    {user?.paymentDetails?.accountName ? `${user.paymentDetails.accountName} · ` : ''}
+                    {user?.paymentDetails?.accountNumber || (isBank ? 'Account set' : 'QR linked')}
+                  </p>
+                </div>
+                <Link to="/settings" className="text-[11px] font-semibold text-zinc-500 hover:text-zinc-900 shrink-0">
+                  Change
+                </Link>
+              </div>
+            );
+          })()}
+
+          {wallet.availableBalance < 100 ? (
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600">
+              <span className="font-semibold text-zinc-900">Minimum withdrawal balance is ₹100.</span>
+              <p className="text-[11px] text-zinc-500 mt-0.5">
+                Your available balance is currently ₹{wallet.availableBalance.toLocaleString()}. Once your earnings reach ₹100 or more, you can withdraw immediately.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-zinc-400">₹</span>
+                <input
+                  type="number"
+                  min="100"
+                  max={wallet.availableBalance}
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="input pl-8 text-sm font-semibold"
+                  placeholder={`Min ₹100 up to ₹${wallet.availableBalance.toLocaleString()}`}
+                />
+              </div>
+
+              {error && <p className="text-xs text-red-600 font-medium">{error}</p>}
+              {success && <p className="text-xs text-emerald-600 font-medium">{success}</p>}
+
+              <button type="submit" disabled={busy} className="btn-primary w-full py-2.5 text-xs font-bold">
+                {busy ? 'Processing request...' : 'Submit Payout Request'}
+              </button>
+            </>
+          )}
         </form>
       )}
+
 
       {/* Business Top Up Request Card */}
       {user?.role === 'business' && (

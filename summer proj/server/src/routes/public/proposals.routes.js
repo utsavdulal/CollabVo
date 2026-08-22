@@ -9,6 +9,9 @@ import { validate } from '../../middleware/validate.js';
 import { asyncHandler, ApiError } from '../../middleware/error.js';
 import { lockEscrow, releaseEscrow, sweepExpiredEscrows, getOrCreateWallet } from '../../services/escrowService.js';
 import { notifyUser } from '../../services/notificationService.js';
+import { upload, validateUploadedFiles } from '../../middleware/upload.js';
+import { uploadLimiter } from '../../middleware/rateLimiter.js';
+import { storage } from '../../config/azureBlob.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -95,6 +98,9 @@ router.post('/', validate(createSchema), asyncHandler(async (req, res) => {
   if (eventId) {
     event = await Event.findById(eventId);
     if (!event) throw new ApiError(404, 'Campaign event not found');
+    if (event.status === 'filled' || (event.creatorsNeeded && (event.creatorsHired || 0) >= event.creatorsNeeded)) {
+      throw new ApiError(400, 'This campaign has already filled all creator slots');
+    }
     if (!toUserId) {
       toUserId = String(event.createdBy);
     }
@@ -110,6 +116,18 @@ router.post('/', validate(createSchema), asyncHandler(async (req, res) => {
 
   const target = await User.findById(toUserId);
   if (!target) throw new ApiError(404, 'Target user not found');
+
+  // Prevent duplicate proposals from same creator for same event
+  if (user.role !== 'business' && eventId) {
+    const existing = await Proposal.findOne({
+      fromUserId: user._id,
+      eventId,
+      status: { $in: ['pending', 'accepted'] }
+    });
+    if (existing) {
+      throw new ApiError(400, 'You have already applied to this campaign');
+    }
+  }
 
   if (user.role === 'business') {
     if (user.verificationStatus !== 'verified') {
@@ -205,6 +223,16 @@ router.patch('/:id/accept', asyncHandler(async (req, res) => {
   await lockOnAcceptance(proposal);
 
   if (proposal.status === 'accepted') {
+    if (proposal.eventId) {
+      const event = await Event.findById(proposal.eventId);
+      if (event) {
+        event.creatorsHired = (event.creatorsHired || 0) + 1;
+        if (event.creatorsHired >= (event.creatorsNeeded || 1)) {
+          event.status = 'filled';
+        }
+        await event.save();
+      }
+    }
     await notifyUser(proposal.fromUserId, {
       type: 'escrow',
       message: `Proposal accepted! ₹${proposal.offerAmount.toLocaleString()} is now safely secured in escrow.`,
@@ -246,6 +274,129 @@ router.patch('/:id/reject', asyncHandler(async (req, res) => {
   res.json({ proposal: populated });
 }));
 
+router.patch('/:id/start', asyncHandler(async (req, res) => {
+  const proposal = await Proposal.findById(req.params.id);
+  if (!proposal) throw new ApiError(404, 'Proposal not found');
+  if (proposal.status !== 'accepted' || proposal.escrowStatus !== 'held') {
+    throw new ApiError(400, 'Proposal escrow must be active to start work');
+  }
+  const isParty = String(proposal.fromUserId) === String(req.user._id) || String(proposal.toUserId) === String(req.user._id);
+  if (!isParty) throw new ApiError(403, 'Forbidden');
+
+  proposal.workStarted = true;
+  proposal.workStartedAt = new Date();
+  await proposal.save();
+
+  const notifyTarget = String(proposal.fromUserId) === String(req.user._id) ? proposal.toUserId : proposal.fromUserId;
+  await notifyUser(notifyTarget, {
+    type: 'escrow',
+    message: `${req.user.name} marked the project as Started. Work is officially underway!`,
+    relatedId: proposal._id
+  });
+
+  const populated = await Proposal.findById(proposal._id)
+    .populate('fromUserId', 'name role photoURL verificationStatus category bio location rating')
+    .populate('toUserId', 'name role photoURL verificationStatus category bio location rating')
+    .populate('eventId', 'title image category budget date location');
+
+  res.json({ proposal: populated });
+}));
+
+router.post('/:id/deliverable-upload', uploadLimiter, upload.single('media'), asyncHandler(async (req, res) => {
+  const proposal = await Proposal.findById(req.params.id);
+  if (!proposal) throw new ApiError(404, 'Proposal not found');
+  const isParty = String(proposal.fromUserId) === String(req.user._id) || String(proposal.toUserId) === String(req.user._id);
+  if (!isParty) throw new ApiError(403, 'Forbidden');
+  if (!req.file) throw new ApiError(400, 'No file uploaded');
+
+  const isVideo = req.file.mimetype.startsWith('video/');
+  const mediaType = isVideo ? 'video' : 'image';
+  const ext = req.file.mimetype.split('/')[1] || (isVideo ? 'mp4' : 'jpg');
+  const blobPath = `deliverables/${proposal._id}-${Date.now()}.${ext}`;
+  await storage.upload({ blobPath, data: req.file.buffer, contentType: req.file.mimetype });
+
+  const mediaItem = {
+    url: `/files/${blobPath}`,
+    mediaType,
+    name: req.file.originalname || `deliverable.${ext}`
+  };
+
+  res.json({ media: mediaItem });
+}));
+
+router.patch('/:id/submit', asyncHandler(async (req, res) => {
+  const proposal = await Proposal.findById(req.params.id);
+  if (!proposal) throw new ApiError(404, 'Proposal not found');
+  if (proposal.status !== 'accepted' || proposal.escrowStatus !== 'held') {
+    throw new ApiError(400, 'Escrow is not active for this proposal');
+  }
+  const isParty = String(proposal.fromUserId) === String(req.user._id) || String(proposal.toUserId) === String(req.user._id);
+  if (!isParty) throw new ApiError(403, 'Forbidden');
+
+  proposal.workStarted = true;
+  if (!proposal.workStartedAt) proposal.workStartedAt = new Date();
+  proposal.creatorConfirmedComplete = true;
+  proposal.creatorConfirmedAt = new Date();
+  proposal.submittedAt = new Date();
+  proposal.revisionRequested = false;
+  if (req.body.deliverableURL !== undefined) proposal.deliverableURL = String(req.body.deliverableURL).trim();
+  if (req.body.deliverableNotes !== undefined) proposal.deliverableNotes = String(req.body.deliverableNotes).trim();
+  if (Array.isArray(req.body.deliverableMedia)) {
+    proposal.deliverableMedia = req.body.deliverableMedia;
+  }
+  await proposal.save();
+
+  const notifyTarget = String(proposal.fromUserId) === String(req.user._id) ? proposal.toUserId : proposal.fromUserId;
+  await notifyUser(notifyTarget, {
+    type: 'escrow',
+    message: `${req.user.name} submitted the deliverables! Please review and confirm delivery to release escrow funds.`,
+    relatedId: proposal._id
+  });
+
+  const populated = await Proposal.findById(proposal._id)
+    .populate('fromUserId', 'name role photoURL verificationStatus category bio location rating')
+    .populate('toUserId', 'name role photoURL verificationStatus category bio location rating')
+    .populate('eventId', 'title image category budget date location');
+
+  res.json({ proposal: populated });
+}));
+
+router.patch('/:id/request-revision', asyncHandler(async (req, res) => {
+  const proposal = await Proposal.findById(req.params.id);
+  if (!proposal) throw new ApiError(404, 'Proposal not found');
+  if (proposal.status !== 'accepted' || proposal.escrowStatus !== 'held') {
+    throw new ApiError(400, 'Escrow is not active for this proposal');
+  }
+  const isParty = String(proposal.fromUserId) === String(req.user._id) || String(proposal.toUserId) === String(req.user._id);
+  if (!isParty) throw new ApiError(403, 'Forbidden');
+
+  const notes = String(req.body.revisionNotes || '').trim();
+  if (!notes) {
+    throw new ApiError(400, 'Please provide revision notes or details of required changes');
+  }
+
+  proposal.creatorConfirmedComplete = false;
+  proposal.businessConfirmedComplete = false;
+  proposal.revisionRequested = true;
+  proposal.revisionNotes = notes;
+  proposal.revisionRequestedAt = new Date();
+  await proposal.save();
+
+  const notifyTarget = String(proposal.fromUserId) === String(req.user._id) ? proposal.toUserId : proposal.fromUserId;
+  await notifyUser(notifyTarget, {
+    type: 'escrow',
+    message: `${req.user.name} requested changes on your deliverables: "${notes}"`,
+    relatedId: proposal._id
+  });
+
+  const populated = await Proposal.findById(proposal._id)
+    .populate('fromUserId', 'name role photoURL verificationStatus category bio location rating')
+    .populate('toUserId', 'name role photoURL verificationStatus category bio location rating')
+    .populate('eventId', 'title image category budget date location');
+
+  res.json({ proposal: populated });
+}));
+
 router.patch('/:id/complete', asyncHandler(async (req, res) => {
   const proposal = await Proposal.findById(req.params.id);
   if (!proposal) throw new ApiError(404, 'Proposal not found');
@@ -260,6 +411,7 @@ router.patch('/:id/complete', asyncHandler(async (req, res) => {
   } else {
     proposal.creatorConfirmedComplete = true;
     proposal.creatorConfirmedAt = new Date();
+    proposal.submittedAt = proposal.submittedAt || new Date();
   }
   await proposal.save();
 

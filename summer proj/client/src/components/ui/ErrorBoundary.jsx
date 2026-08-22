@@ -28,8 +28,16 @@ export class ErrorBoundary extends Component {
             </div>
             <h1 className="text-lg font-bold text-zinc-900 dark:text-white">Something went wrong</h1>
             <p className="mt-1.5 text-xs text-zinc-500 dark:text-[#8e95af]">
-              An unexpected error occurred. Please reload the page to continue.
+              {this.state.error?.message || 'An unexpected error occurred. Please reload the page to continue.'}
             </p>
+            {this.state.error?.stack && (
+              <details className="mt-3 text-left">
+                <summary className="text-[11px] text-zinc-400 cursor-pointer hover:underline">View error details</summary>
+                <pre className="mt-1.5 max-h-36 overflow-auto rounded-xl bg-zinc-100 dark:bg-black/50 p-2 text-[10px] text-red-500 font-mono">
+                  {this.state.error.stack}
+                </pre>
+              </details>
+            )}
             <button
               type="button"
               onClick={() => window.location.reload()}

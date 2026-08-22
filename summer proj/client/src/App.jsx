@@ -127,7 +127,7 @@ export default function App() {
         <Route path="/proposals" element={<Proposals />} />
         <Route path="/proposal/:id" element={<ProposalDetail />} />
         <Route path="/messages" element={<Messages />} />
-        <Route path="/messages/:id" element={<ChatDetail />} />
+        <Route path="/messages/:id" element={<Messages />} />
         <Route path="/activity" element={<Activity />} />
         <Route path="/event/:id" element={<EventDetail />} />
         <Route path="/wallet" element={<Wallet />} />

@@ -24,7 +24,7 @@ async function writeAudit(admin, action, targetType, targetId, details = {}) {
 }
 
 router.get('/user/:id', asyncHandler(async (req, res) => {
-  const user = await User.findById(req.params.id).select('name email role photoURL');
+  const user = await User.findById(req.params.id).select('name email role photoURL paymentDetails');
   if (!user) throw new ApiError(404, 'User not found');
   const wallet = await getWallet(user._id);
   const transactions = await Transaction.find({ userId: user._id }).sort({ createdAt: -1 }).limit(200);
@@ -61,7 +61,7 @@ router.get('/withdrawals', asyncHandler(async (req, res) => {
   const { status = 'pending' } = req.query;
   const transactions = await Transaction.find({ type: 'withdrawal', status })
     .sort({ createdAt: -1 })
-    .populate('userId', 'name email');
+    .populate('userId', 'name email role paymentDetails photoURL');
   res.json({ transactions });
 }));
 
@@ -69,7 +69,7 @@ router.get('/topups', asyncHandler(async (req, res) => {
   const { status = 'pending' } = req.query;
   const transactions = await Transaction.find({ type: 'topup_request', status })
     .sort({ createdAt: -1 })
-    .populate('userId', 'name email role');
+    .populate('userId', 'name email role paymentDetails');
   res.json({ transactions });
 }));
 

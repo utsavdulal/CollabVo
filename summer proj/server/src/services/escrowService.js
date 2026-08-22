@@ -74,7 +74,10 @@ export async function lockEscrow({ proposal, session }) {
   
   // Business is the one paying the escrow
   const businessUserId = fromUser.role === 'business' ? proposal.fromUserId : proposal.toUserId;
+  const creatorUserId = String(businessUserId) === String(proposal.fromUserId) ? proposal.toUserId : proposal.fromUserId;
+
   const businessWallet = await getOrCreateWallet(businessUserId, session);
+  const creatorWallet = await getOrCreateWallet(creatorUserId, session);
   
   if (businessWallet.availableBalance < proposal.offerAmount) {
     throw new ApiError(400, 'Insufficient wallet balance to secure this deal');
@@ -83,12 +86,16 @@ export async function lockEscrow({ proposal, session }) {
   businessWallet.escrowHeld += proposal.offerAmount;
   await businessWallet.save({ session });
 
+  // Update creator payment on hold
+  creatorWallet.escrowHeld += proposal.offerAmount;
+  await creatorWallet.save({ session });
+
   await Transaction.create(
     [
       {
         type: 'escrow_lock',
         userId: businessUserId,
-        counterpartyId: businessUserId === proposal.fromUserId ? proposal.toUserId : proposal.fromUserId,
+        counterpartyId: creatorUserId,
         proposalId: proposal._id,
         amount: proposal.offerAmount,
         status: 'completed'
@@ -120,6 +127,8 @@ export async function releaseEscrow({ proposal, session }) {
   businessWallet.escrowHeld = Math.max(0, businessWallet.escrowHeld - amount);
   await businessWallet.save({ session });
 
+  creatorWallet.escrowHeld = Math.max(0, creatorWallet.escrowHeld - amount);
+  creatorWallet.availableBalance += amount;
   creatorWallet.claimableBalance += amount;
   await creatorWallet.save({ session });
 
@@ -127,8 +136,8 @@ export async function releaseEscrow({ proposal, session }) {
     [
       {
         type: 'escrow_release',
-        userId: proposal.toUserId,
-        counterpartyId: proposal.fromUserId,
+        userId: creatorUserId,
+        counterpartyId: businessUserId,
         proposalId: proposal._id,
         amount,
         status: 'completed'
@@ -154,9 +163,14 @@ export async function requestPayout({ userId, amount }) {
       ]).session(session);
       const pendingTotal = pendingAgg[0]?.total || 0;
 
-      if (amount <= 0) throw new ApiError(400, 'Invalid payout amount');
-      if (wallet.claimableBalance < pendingTotal + amount) {
-        throw new ApiError(400, 'Claimable balance is not enough for this payout');
+      if (!amount || amount < 100) {
+        throw new ApiError(400, 'Minimum withdrawal amount is ₹100');
+      }
+
+      // Total withdrawable is the available balance
+      const totalWithdrawable = wallet.availableBalance;
+      if (totalWithdrawable < pendingTotal + amount) {
+        throw new ApiError(400, 'Insufficient balance for this payout request');
       }
 
       const txn = await Transaction.create(
@@ -250,10 +264,12 @@ export async function payWithdrawal({ adminId, withdrawalId }) {
       if (txn.status !== 'pending') throw new ApiError(400, 'Withdrawal already processed');
 
       const wallet = await getOrCreateWallet(txn.userId, session);
-      if (wallet.claimableBalance < txn.amount) {
-        throw new ApiError(400, 'Claimable balance no longer covers this payout');
+      if (wallet.availableBalance < txn.amount && wallet.claimableBalance < txn.amount) {
+        throw new ApiError(400, 'Wallet balance no longer covers this payout');
       }
-      wallet.claimableBalance -= txn.amount;
+
+      wallet.availableBalance = Math.max(0, wallet.availableBalance - txn.amount);
+      wallet.claimableBalance = Math.max(0, wallet.claimableBalance - txn.amount);
       await wallet.save({ session });
 
       txn.status = 'completed';

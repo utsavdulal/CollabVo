@@ -4,7 +4,7 @@ import {
   ChevronLeft, Camera, MapPin, Edit3, BarChart2, Share2,
   Briefcase, Tag, Plus, MessageCircle, Send, ShieldAlert,
   ShieldCheck, Star, ExternalLink, X, Store, Globe,
-  CheckCircle2, Clock, PlusCircle
+  CheckCircle2, Clock, PlusCircle, QrCode, CreditCard, Building, Building2
 } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { useAuthStore } from '../store/authStore.js';
@@ -14,6 +14,16 @@ import { PostEventModal } from '../components/ui/PostEventModal.jsx';
 import { ReportModal } from '../components/ui/ReportModal.jsx';
 import { ReviewModal } from '../components/ui/ReviewModal.jsx';
 import { SubmitProposalModal } from '../components/ui/SubmitProposalModal.jsx';
+import { PAYMENT_PROVIDERS, NEPAL_BANKS, getProviderConfig } from '../lib/paymentData.jsx';
+import { GoogleMapViewer } from '../components/maps/GoogleMapViewer.jsx';
+
+function formatLocation(loc) {
+  if (!loc) return '';
+  if (typeof loc === 'string') return loc;
+  const parts = [loc.city, loc.state, loc.country].filter(Boolean);
+  if (parts.length > 0) return parts.join(', ');
+  return loc.address || '';
+}
 
 export default function ProfileView() {
   const { id } = useParams();
@@ -27,9 +37,15 @@ export default function ProfileView() {
   const [submitProposalOpen, setSubmitProposalOpen] = useState(false);
 
   // Modals for editing sections
+  const [editBusinessModalOpen, setEditBusinessModalOpen] = useState(false);
+  const [locationModalOpen, setLocationModalOpen] = useState(false);
   const [socialModalOpen, setSocialModalOpen] = useState(false);
   const [workModalOpen, setWorkModalOpen] = useState(false);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [paymentQRModalOpen, setPaymentQRModalOpen] = useState(false);
+  const [zoomQR, setZoomQR] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [coverBusy, setCoverBusy] = useState(false);
 
   const load = () => {
     const targetId = id || currentUser?.id || currentUser?._id;
@@ -40,6 +56,44 @@ export default function ProfileView() {
   };
 
   useEffect(load, [id, currentUser]);
+
+  const onPhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setPhotoBusy(true);
+    const fd = new FormData();
+    fd.append('photo', file);
+    try {
+      const res = await api('/users/photo', { method: 'POST', formData: fd });
+      setData((d) => ({ ...d, user: { ...d.user, photoURL: res.photoURL || res.user?.photoURL } }));
+      if (res.user) setUser(res.user);
+    } catch (err) {
+      alert(err.message || 'Failed to upload photo');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const onCoverUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setCoverBusy(true);
+    const fd = new FormData();
+    fd.append('photo', file);
+    try {
+      const res = await api('/users/photo', { method: 'POST', formData: fd });
+      const photoURL = res.photoURL || res.user?.photoURL;
+      const { user: updated } = await api('/users/me', { method: 'PATCH', body: { coverURL: photoURL } });
+      setData((d) => ({ ...d, user: { ...d.user, coverURL: photoURL } }));
+      setUser(updated);
+    } catch (err) {
+      alert(err.message || 'Failed to upload cover');
+    } finally {
+      setCoverBusy(false);
+    }
+  };
 
   if (error) return <p className="py-16 text-center text-sm text-red-500">{error}</p>;
   if (!data) return <div className="flex justify-center py-16"><Spinner /></div>;
@@ -61,7 +115,10 @@ export default function ProfileView() {
     return (
       <div className="pb-24 max-w-xl mx-auto">
         {/* 1. Header Banner */}
-        <div className="relative h-44 w-full rounded-b-3xl bg-gradient-to-r from-blue-700 via-indigo-600 to-violet-700 p-4 shadow-md">
+        <div
+          className="relative h-44 w-full rounded-b-3xl bg-gradient-to-r from-blue-700 via-indigo-600 to-violet-700 p-4 shadow-md overflow-hidden bg-cover bg-center"
+          style={p.coverURL ? { backgroundImage: `url(${p.coverURL})` } : {}}
+        >
           <button
             type="button"
             onClick={() => navigate(-1)}
@@ -72,14 +129,13 @@ export default function ProfileView() {
           </button>
 
           {isSelf && (
-            <button
-              type="button"
-              onClick={() => navigate('/settings')}
-              className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md hover:bg-black/60 transition-all active:scale-95"
-              aria-label="Change Cover"
+            <label
+              className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md hover:bg-black/60 transition-all active:scale-95 cursor-pointer"
+              title="Change Cover Banner"
             >
               <Camera className="h-5 w-5" />
-            </button>
+              <input type="file" accept="image/*" className="hidden" onChange={onCoverUpload} disabled={coverBusy} />
+            </label>
           )}
         </div>
 
@@ -97,21 +153,20 @@ export default function ProfileView() {
               )}
             </div>
             {isSelf && (
-              <button
-                type="button"
-                onClick={() => navigate('/settings')}
-                className="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center rounded-full bg-[#6366f1] text-white border-2 border-white dark:border-[#1a1d2d] shadow-md hover:bg-[#4f46e5] transition-all"
-                aria-label="Change Business Logo"
+              <label
+                className="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center rounded-full bg-[#6366f1] text-white border-2 border-white dark:border-[#1a1d2d] shadow-md hover:bg-[#4f46e5] transition-all cursor-pointer"
+                title="Change Business Logo"
               >
                 <Camera className="h-4 w-4" />
-              </button>
+                <input type="file" accept="image/*" className="hidden" onChange={onPhotoUpload} disabled={photoBusy} />
+              </label>
             )}
           </div>
 
           {/* Business Title & Verified Status */}
           <div className="mt-3 flex items-center justify-center gap-1.5">
             <h1 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight">
-              {p.name || 'Subedi kirana'}
+              {p.name || 'Subedi Kirana'}
             </h1>
             {p.verificationStatus === 'verified' && (
               <ShieldCheck className="h-5 w-5 text-blue-600 shrink-0" title="Verified Business" />
@@ -119,7 +174,7 @@ export default function ProfileView() {
           </div>
 
           <p className="text-xs font-semibold text-zinc-500 dark:text-[#8e95af] mt-0.5">
-            {handle} · <span className="capitalize">{p.category || 'Retail'}</span>
+            {handle} · <span className="capitalize font-bold text-indigo-600 dark:text-indigo-400">{p.category || 'Retail'}</span>
           </p>
 
           {/* Verification Status Pill */}
@@ -138,16 +193,16 @@ export default function ProfileView() {
             ) : null}
           </div>
 
-          {p.location?.address && (
+          {formatLocation(p.location) && (
             <p className="mt-2 flex items-center justify-center gap-1 text-xs font-medium text-indigo-600 dark:text-[#818cf8]">
               <MapPin className="h-3.5 w-3.5" />
-              <span>{p.location.address}</span>
+              <span>{formatLocation(p.location)}</span>
             </p>
           )}
 
           <p className="mt-3 text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed max-w-md mx-auto">
             {p.bio ||
-              "We are a verified local business collaborating with talented content creators for high-impact social campaigns, promotions, and brand storytelling."}
+              "We are a verified business collaborating with talented content creators for high-impact social campaigns, promotions, and brand storytelling."}
           </p>
 
           {/* Action Buttons for Business */}
@@ -156,15 +211,15 @@ export default function ProfileView() {
               <>
                 <button
                   type="button"
-                  onClick={() => navigate('/settings')}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-[#6366f1]/40 bg-indigo-50/40 dark:bg-[#232542]/50 py-2.5 text-xs font-bold text-[#6366f1] dark:text-[#818cf8] hover:bg-indigo-50 dark:hover:bg-[#232542] transition-colors"
+                  onClick={() => setEditBusinessModalOpen(true)}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-[#6366f1]/40 bg-indigo-50/50 dark:bg-[#232542]/50 py-2.5 text-xs font-bold text-[#6366f1] dark:text-[#818cf8] hover:bg-indigo-100 dark:hover:bg-[#232542] transition-colors shadow-xs"
                 >
-                  <Edit3 className="h-4 w-4" /> Edit Profile
+                  <Edit3 className="h-4 w-4" /> Edit Business Profile
                 </button>
                 <button
                   type="button"
                   onClick={() => setPostEventOpen(true)}
-                  className="btn-primary flex-1 py-2.5 text-xs font-bold"
+                  className="btn-primary flex-1 py-2.5 text-xs font-bold shadow-xs"
                 >
                   <Plus className="h-4 w-4" /> Post Campaign
                 </button>
@@ -224,6 +279,18 @@ export default function ProfileView() {
             </div>
           </div>
         </div>
+
+        {/* 2b. Section: Physical Location & On-Site Works Map */}
+        {(p.location?.coordinates?.[0] || p.location?.coordinates?.[1] || p.location?.address) && (
+          <div className="mt-5 px-3">
+            <GoogleMapViewer
+              coordinates={p.location?.coordinates || [0, 0]}
+              address={p.location?.address || [p.location?.city, p.location?.state, p.location?.country].filter(Boolean).join(', ')}
+              title={`${p.name} · Physical Location / Store`}
+              height="h-56"
+            />
+          </div>
+        )}
 
         {/* 3. Section: Active Campaigns Posted by This Business */}
         <div className="mt-5 px-3">
@@ -331,32 +398,67 @@ export default function ProfileView() {
               {isSelf && (
                 <button
                   type="button"
-                  onClick={() => setCategoryModalOpen(true)}
+                  onClick={() => setEditBusinessModalOpen(true)}
                   className="text-xs font-bold text-[#6366f1] dark:text-[#818cf8] hover:underline"
                 >
-                  Edit Category
+                  Edit Details
                 </button>
               )}
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="flex items-center justify-between py-1.5 border-b border-zinc-100 dark:border-[#262a3e]">
-                <span className="text-zinc-500 dark:text-[#8e95af]">Category</span>
-                <span className="font-bold text-zinc-900 dark:text-white capitalize">
-                  🏷️ {p.category || 'Retail & Groceries'}
-                </span>
+              <div className="flex items-center justify-between py-2 border-b border-zinc-100 dark:border-[#262a3e]">
+                <span className="text-zinc-500 dark:text-[#8e95af]">Industry Category</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-zinc-900 dark:text-white capitalize">
+                    🏷️ {p.category || 'Retail & Groceries'}
+                  </span>
+                  {isSelf && (
+                    <button
+                      type="button"
+                      onClick={() => setCategoryModalOpen(true)}
+                      className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                    >
+                      Change
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {p.location?.address && (
-                <div className="flex items-center justify-between py-1.5 border-b border-zinc-100 dark:border-[#262a3e]">
-                  <span className="text-zinc-500 dark:text-[#8e95af]">Store Location</span>
-                  <span className="font-bold text-zinc-900 dark:text-white truncate max-w-xs">
-                    📍 {p.location.address}
+              <div className="flex items-center justify-between py-2 border-b border-zinc-100 dark:border-[#262a3e]">
+                <span className="text-zinc-500 dark:text-[#8e95af]">Store Location</span>
+                <div className="flex items-center gap-2 text-right">
+                  <span className="font-bold text-zinc-900 dark:text-white truncate max-w-[200px]">
+                    📍 {[p.location?.city, p.location?.state, p.location?.country].filter(Boolean).join(', ') || p.location?.address || 'Nepal'}
                   </span>
+                  {isSelf && (
+                    <button
+                      type="button"
+                      onClick={() => setLocationModalOpen(true)}
+                      className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0"
+                    >
+                      Edit
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {p.socials?.website && (
+                <div className="flex items-center justify-between py-2 border-b border-zinc-100 dark:border-[#262a3e]">
+                  <span className="text-zinc-500 dark:text-[#8e95af]">Website</span>
+                  <a
+                    href={p.socials.website.startsWith('http') ? p.socials.website : `https://${p.socials.website}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 truncate max-w-[200px]"
+                  >
+                    <Globe className="h-3.5 w-3.5" />
+                    <span>{p.socials.website.replace(/^https?:\/\//, '')}</span>
+                  </a>
                 </div>
               )}
 
-              <div className="flex items-center justify-between py-1.5">
+              <div className="flex items-center justify-between py-2">
                 <span className="text-zinc-500 dark:text-[#8e95af]">Escrow Payment Protection</span>
                 <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                   <CheckCircle2 className="h-3.5 w-3.5" /> 100% Guaranteed
@@ -366,7 +468,102 @@ export default function ProfileView() {
           </div>
         </div>
 
-        {/* 5. Section: Creator Reviews & Ratings */}
+        {/* 5. Section: Connected Social & Online Channels */}
+        <div className="mt-5 px-3">
+          <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-[#262a3e] dark:bg-[#1a1d2d] transition-colors">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-extrabold text-zinc-900 dark:text-white">
+                Social &amp; Web Presence
+              </h2>
+              {isSelf && (
+                <button
+                  type="button"
+                  onClick={() => setSocialModalOpen(true)}
+                  className="text-xs font-bold text-[#6366f1] dark:text-[#818cf8] hover:underline"
+                >
+                  {hasSocials ? 'Edit Links' : '+ Link Channels'}
+                </button>
+              )}
+            </div>
+
+            {!hasSocials ? (
+              <div className="text-center py-5">
+                <p className="text-xs text-zinc-400 dark:text-[#8e95af]">
+                  No social accounts or website linked yet.
+                </p>
+                {isSelf && (
+                  <button
+                    type="button"
+                    onClick={() => setSocialModalOpen(true)}
+                    className="btn-secondary mt-3 py-1.5 px-4 text-xs font-bold"
+                  >
+                    + Add Online Links
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 text-xs font-bold">
+                {p.socials?.website && (
+                  <a
+                    href={p.socials.website.startsWith('http') ? p.socials.website : `https://${p.socials.website}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 rounded-2xl border border-zinc-200 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#161926] p-3 text-zinc-800 dark:text-zinc-200 hover:border-indigo-400"
+                  >
+                    <Globe className="h-4 w-4 text-indigo-600" />
+                    <span className="truncate">Website</span>
+                  </a>
+                )}
+                {p.socials?.instagram && (
+                  <a
+                    href={p.socials.instagram.startsWith('http') ? p.socials.instagram : `https://instagram.com/${p.socials.instagram.replace('@', '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 rounded-2xl border border-pink-200/60 dark:border-pink-900/40 bg-pink-50/40 dark:bg-[#161926] p-3 text-pink-700 dark:text-pink-300 hover:border-pink-400"
+                  >
+                    <span className="text-sm">📸</span>
+                    <span className="truncate">{p.socials.instagram}</span>
+                  </a>
+                )}
+                {p.socials?.facebook && (
+                  <a
+                    href={p.socials.facebook.startsWith('http') ? p.socials.facebook : `https://facebook.com/${p.socials.facebook}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 rounded-2xl border border-blue-200/60 dark:border-blue-900/40 bg-blue-50/40 dark:bg-[#161926] p-3 text-blue-700 dark:text-blue-300 hover:border-blue-400"
+                  >
+                    <span className="text-sm">👥</span>
+                    <span className="truncate">Facebook</span>
+                  </a>
+                )}
+                {p.socials?.tiktok && (
+                  <a
+                    href={p.socials.tiktok.startsWith('http') ? p.socials.tiktok : `https://tiktok.com/@${p.socials.tiktok.replace('@', '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 rounded-2xl border border-zinc-200 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#161926] p-3 text-zinc-800 dark:text-zinc-200 hover:border-zinc-400"
+                  >
+                    <span className="text-sm">🎵</span>
+                    <span className="truncate">{p.socials.tiktok}</span>
+                  </a>
+                )}
+                {p.socials?.youtube && (
+                  <a
+                    href={p.socials.youtube.startsWith('http') ? p.socials.youtube : `https://youtube.com/${p.socials.youtube}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 rounded-2xl border border-red-200/60 dark:border-red-900/40 bg-red-50/40 dark:bg-[#161926] p-3 text-red-700 dark:text-red-300 hover:border-red-400"
+                  >
+                    <span className="text-sm">▶️</span>
+                    <span className="truncate">YouTube</span>
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 6. Section: Creator Reviews & Ratings */}
         <div className="mt-5 px-3">
           <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-[#262a3e] dark:bg-[#1a1d2d] transition-colors">
             <div className="flex items-center justify-between mb-3">
@@ -416,20 +613,56 @@ export default function ProfileView() {
           </div>
         </div>
 
-        {/* Modals */}
+        {/* Modals for Business */}
         <PostEventModal
           open={postEventOpen}
           onClose={() => setPostEventOpen(false)}
           onCreated={() => load()}
         />
-        <CategoryModal
-          currentCategory={p.category || 'retail'}
-          onClose={() => setCategoryModalOpen(false)}
-          onSaved={(newCat) => {
-            setData((d) => ({ ...d, user: { ...d.user, category: newCat } }));
-            setCategoryModalOpen(false);
-          }}
-        />
+        {editBusinessModalOpen && (
+          <EditBusinessModal
+            user={p}
+            onClose={() => setEditBusinessModalOpen(false)}
+            onSaved={(updatedUser) => {
+              setData((d) => ({ ...d, user: { ...d.user, ...updatedUser } }));
+              setUser(updatedUser);
+              setEditBusinessModalOpen(false);
+            }}
+          />
+        )}
+        {locationModalOpen && (
+          <LocationModal
+            currentLocation={p.location}
+            onClose={() => setLocationModalOpen(false)}
+            onSaved={(newLoc) => {
+              setData((d) => ({ ...d, user: { ...d.user, location: newLoc } }));
+              setUser({ ...currentUser, location: newLoc });
+              setLocationModalOpen(false);
+            }}
+          />
+        )}
+        {categoryModalOpen && (
+          <CategoryModal
+            currentCategory={p.category || 'retail'}
+            onClose={() => setCategoryModalOpen(false)}
+            onSaved={(newCat) => {
+              setData((d) => ({ ...d, user: { ...d.user, category: newCat } }));
+              setUser({ ...currentUser, category: newCat });
+              setCategoryModalOpen(false);
+            }}
+          />
+        )}
+        {socialModalOpen && (
+          <SocialModal
+            initialSocials={p.socials || {}}
+            onClose={() => setSocialModalOpen(false)}
+            onSaved={(newSocials) => {
+              setData((d) => ({ ...d, user: { ...d.user, socials: newSocials } }));
+              setUser({ ...currentUser, socials: newSocials });
+              setSocialModalOpen(false);
+            }}
+          />
+        )}
         <ReportModal open={reportOpen} onClose={() => setReportOpen(false)} targetUser={p} />
         <ReviewModal open={reviewOpen} onClose={() => setReviewOpen(false)} targetUser={p} onReviewed={load} />
       </div>
@@ -495,10 +728,10 @@ export default function ProfileView() {
           {handle}
         </p>
 
-        {p.location?.address && (
+        {formatLocation(p.location) && (
           <p className="mt-1.5 flex items-center justify-center gap-1 text-xs font-medium text-indigo-600 dark:text-[#818cf8]">
             <MapPin className="h-3.5 w-3.5" />
-            <span>{p.location.address}</span>
+            <span>{formatLocation(p.location)}</span>
           </p>
         )}
 
@@ -616,7 +849,7 @@ export default function ProfileView() {
             </div>
           ) : (
             <div className="space-y-2">
-              {p.socials.instagram && (
+              {p.socials?.instagram && (
                 <div className="flex items-center justify-between rounded-2xl border border-zinc-200 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#161926] p-3">
                   <div className="flex items-center gap-2.5">
                     <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white text-xs">📷</span>
@@ -627,7 +860,7 @@ export default function ProfileView() {
                   </div>
                 </div>
               )}
-              {p.socials.tiktok && (
+              {p.socials?.tiktok && (
                 <div className="flex items-center justify-between rounded-2xl border border-zinc-200 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#161926] p-3">
                   <div className="flex items-center gap-2.5">
                     <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-black text-white text-xs">♪</span>
@@ -638,7 +871,7 @@ export default function ProfileView() {
                   </div>
                 </div>
               )}
-              {p.socials.youtube && (
+              {p.socials?.youtube && (
                 <div className="flex items-center justify-between rounded-2xl border border-zinc-200 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#161926] p-3">
                   <div className="flex items-center gap-2.5">
                     <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-600 text-white text-xs">▶</span>
@@ -649,10 +882,141 @@ export default function ProfileView() {
                   </div>
                 </div>
               )}
+              {p.socials?.facebook && (
+                <div className="flex items-center justify-between rounded-2xl border border-zinc-200 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#161926] p-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-600 text-white text-xs">👥</span>
+                    <div>
+                      <p className="text-xs font-bold text-zinc-900 dark:text-white">Facebook</p>
+                      <p className="text-[11px] text-zinc-500 dark:text-[#8e95af]">{p.socials.facebook}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {p.socials?.website && (
+                <div className="flex items-center justify-between rounded-2xl border border-zinc-200 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#161926] p-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white text-xs">🌐</span>
+                    <div>
+                      <p className="text-xs font-bold text-zinc-900 dark:text-white">Website</p>
+                      <p className="text-[11px] text-zinc-500 dark:text-[#8e95af]">{p.socials.website}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Creator Payment & Payout QR Section (eSewa / Khalti / Fonepay) */}
+      {isSelf && (
+        <div className="mt-5 px-3">
+          <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-[#262a3e] dark:bg-[#1a1d2d] transition-colors">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-[#6366f1] dark:bg-[#232542] dark:text-[#818cf8]">
+                  <QrCode className="h-4 w-4" />
+                </div>
+                <div>
+                  <h2 className="text-base font-extrabold text-zinc-900 dark:text-white">Payout & Payment QR</h2>
+                  <p className="text-[11px] text-zinc-500 dark:text-[#8e95af]">eSewa, Khalti, Fonepay for real money earnings withdrawal</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPaymentQRModalOpen(true)}
+                className="text-xs font-bold text-[#6366f1] dark:text-[#818cf8] hover:underline"
+              >
+                {p.paymentDetails?.qrCodeURL || p.paymentDetails?.accountNumber ? 'Edit QR' : '+ Add QR'}
+              </button>
+            </div>
+
+            {!(p.paymentDetails?.qrCodeURL || p.paymentDetails?.accountNumber) ? (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 dark:border-[#262a3e] dark:bg-[#121522] py-8 px-4 text-center">
+                <QrCode className="h-8 w-8 text-zinc-400 dark:text-[#8e95af] mb-2" />
+                <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                  No Payment / Payout Details Linked
+                </p>
+                <p className="mt-1 text-xs text-zinc-500 dark:text-[#8e95af] max-w-xs">
+                  Add your eSewa, Khalti, Fonepay, or Nepal Bank details so the admin can transfer your payout earnings.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPaymentQRModalOpen(true)}
+                  className="btn-primary mt-4 py-2 px-5 text-xs font-bold"
+                >
+                  + Link Payment Details
+                </button>
+              </div>
+            ) : (() => {
+              const providerConfig = getProviderConfig(p.paymentDetails?.provider);
+              const ProviderLogo = providerConfig.logo;
+              return (
+                <div className="flex flex-col sm:flex-row items-center gap-4 rounded-2xl border border-zinc-200 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#161926] p-4">
+                  {p.paymentDetails?.qrCodeURL ? (
+                    <div
+                      className="relative group cursor-pointer shrink-0 rounded-2xl overflow-hidden border border-zinc-200 dark:border-[#262a3e] bg-white p-1 shadow-sm"
+                      onClick={() => setZoomQR(true)}
+                      title="Click to view full-size QR"
+                    >
+                      <img
+                        src={p.paymentDetails.qrCodeURL}
+                        alt="Payment QR"
+                        className="h-24 w-24 object-contain group-hover:scale-105 transition-transform"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                        View QR
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-zinc-200 dark:bg-[#232542] text-zinc-400 shrink-0">
+                      <ProviderLogo className="h-10 w-10 text-zinc-400" />
+                    </div>
+                  )}
+
+                  <div className="flex-1 space-y-1.5 text-center sm:text-left min-w-0">
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${providerConfig.bgClass}`}>
+                        <ProviderLogo className="h-3.5 w-3.5" />
+                        <span>{providerConfig.label}</span>
+                      </span>
+                      <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-0.5">
+                        <CheckCircle2 className="h-3 w-3" /> Payout Ready
+                      </span>
+                    </div>
+
+                    {p.paymentDetails?.provider === 'bank' && p.paymentDetails?.bankName && (
+                      <p className="text-xs font-bold text-zinc-900 dark:text-white">
+                        Bank: <span className="font-semibold text-blue-600 dark:text-blue-400">{p.paymentDetails.bankName}</span>
+                      </p>
+                    )}
+
+                    {p.paymentDetails?.accountName && (
+                      <p className="text-xs font-bold text-zinc-900 dark:text-white">
+                        Account Holder: <span className="font-normal text-zinc-600 dark:text-zinc-300">{p.paymentDetails.accountName}</span>
+                      </p>
+                    )}
+
+                    {p.paymentDetails?.accountNumber && (
+                      <p className="text-xs font-bold text-zinc-900 dark:text-white">
+                        {p.paymentDetails?.provider === 'bank' ? 'Account Number: ' : 'Wallet / ID: '}
+                        <span className="font-mono font-semibold text-indigo-600 dark:text-indigo-400">{p.paymentDetails.accountNumber}</span>
+                      </p>
+                    )}
+
+                    {p.paymentDetails?.notes && (
+                      <p className="text-[11px] text-zinc-500 dark:text-[#8e95af] line-clamp-1">
+                        Branch / Notes: {p.paymentDetails.notes}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       {/* Categories */}
       <div className="mt-5 px-3">
@@ -782,6 +1146,45 @@ export default function ProfileView() {
           }}
         />
       )}
+      {paymentQRModalOpen && (
+        <PaymentQRModal
+          initialPaymentDetails={p.paymentDetails || {}}
+          onClose={() => setPaymentQRModalOpen(false)}
+          onSaved={(newDetails) => {
+            setData((d) => ({ ...d, user: { ...d.user, paymentDetails: newDetails } }));
+            setUser({ ...currentUser, paymentDetails: newDetails });
+            setPaymentQRModalOpen(false);
+          }}
+        />
+      )}
+      {zoomQR && p.paymentDetails?.qrCodeURL && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={() => setZoomQR(false)}>
+          <div className="relative max-w-sm w-full rounded-3xl bg-white dark:bg-[#1a1d2d] p-6 text-center shadow-2xl border border-zinc-200 dark:border-[#262a3e]" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setZoomQR(false)}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-600 dark:hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <h3 className="text-base font-bold text-zinc-900 dark:text-white">Payment QR Code</h3>
+            <p className="text-xs text-zinc-500 capitalize mt-0.5">{p.paymentDetails.provider || 'Digital Wallet'}</p>
+            <div className="mt-4 p-3 bg-white rounded-2xl border border-zinc-200 inline-block shadow-inner">
+              <img src={p.paymentDetails.qrCodeURL} alt="QR Code Full" className="h-64 w-64 object-contain mx-auto" />
+            </div>
+            {p.paymentDetails.accountName && (
+              <p className="mt-3 text-xs font-bold text-zinc-900 dark:text-white">
+                {p.paymentDetails.accountName}
+              </p>
+            )}
+            {p.paymentDetails.accountNumber && (
+              <p className="text-xs font-mono text-indigo-600 dark:text-indigo-400 font-semibold mt-0.5">
+                {p.paymentDetails.accountNumber}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
       <ReportModal open={reportOpen} onClose={() => setReportOpen(false)} targetUser={p} />
       <ReviewModal open={reviewOpen} onClose={() => setReviewOpen(false)} targetUser={p} onReviewed={load} />
       <SubmitProposalModal
@@ -793,18 +1196,176 @@ export default function ProfileView() {
   );
 }
 
-function SocialModal({ initialSocials, onClose, onSaved }) {
-  const [instagram, setInstagram] = useState(initialSocials.instagram || '');
-  const [tiktok, setTiktok] = useState(initialSocials.tiktok || '');
-  const [youtube, setYoutube] = useState(initialSocials.youtube || '');
-  const [facebook, setFacebook] = useState(initialSocials.facebook || '');
+function EditBusinessModal({ user, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name: user.name || '',
+    bio: user.bio || '',
+    category: user.category || 'retail',
+    location: user.location || { coordinates: [0, 0], address: '', country: 'Nepal', state: '', city: '' },
+    socials: user.socials || { instagram: '', facebook: '', tiktok: '', youtube: '', website: '' }
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const categories = ['retail', 'food', 'hospitality', 'fashion', 'beauty', 'tech', 'fintech', 'automotive', 'education', 'entertainment'];
+
+  const save = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) return setError('Business name is required');
+    setBusy(true);
+    setError('');
+    try {
+      const res = await api('/users/me', { method: 'PATCH', body: form });
+      onSaved(res.user);
+    } catch (err) {
+      setError(err.message || 'Failed to update business details');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="my-8 w-full max-w-lg rounded-3xl border border-zinc-200 dark:border-[#262a3e] bg-white dark:bg-[#161926] p-6 shadow-2xl text-xs">
+        <div className="flex items-center justify-between mb-4 pb-2 border-b border-zinc-100 dark:border-[#262a3e]">
+          <div className="flex items-center gap-2">
+            <Store className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            <div>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white">Edit Business Profile</h3>
+              <p className="text-[11px] text-zinc-500 dark:text-[#8e95af]">Update company details, location, and online channels</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 rounded-xl bg-red-50 p-2.5 text-xs text-red-600 font-medium">{error}</div>
+        )}
+
+        <form onSubmit={save} className="space-y-3.5">
+          <div>
+            <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Business Name</label>
+            <input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="input text-xs"
+              placeholder="e.g. Subedi Kirana Store"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Industry / Category</label>
+            <select
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+              className="input py-2 text-xs bg-white dark:bg-[#161926] font-medium capitalize"
+            >
+              {categories.map((c) => (
+                <option key={c} value={c} className="capitalize">{c}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">About the Business / Bio</label>
+            <textarea
+              value={form.bio}
+              onChange={(e) => setForm({ ...form, bio: e.target.value })}
+              className="input min-h-[65px] text-xs"
+              placeholder="Describe your store, products, and collaboration interests..."
+            />
+          </div>
+
+          <div>
+            <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Store Location (Country, State, City)</label>
+            <PlaceInput value={form.location} onChange={(location) => setForm({ ...form, location })} />
+          </div>
+
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <div>
+              <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Website URL</label>
+              <input
+                value={form.socials?.website || ''}
+                onChange={(e) => setForm({ ...form, socials: { ...form.socials, website: e.target.value } })}
+                className="input text-xs"
+                placeholder="https://yourbusiness.com"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Instagram Handle / URL</label>
+              <input
+                value={form.socials?.instagram || ''}
+                onChange={(e) => setForm({ ...form, socials: { ...form.socials, instagram: e.target.value } })}
+                className="input text-xs"
+                placeholder="@business_instagram"
+              />
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <button type="submit" disabled={busy} className="btn-primary w-full py-3 text-xs font-bold">
+              {busy ? 'Saving Changes...' : 'Save Business Profile'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function LocationModal({ currentLocation, onClose, onSaved }) {
+  const [location, setLocation] = useState(currentLocation || { coordinates: [0, 0], address: '', country: 'Nepal', state: '', city: '' });
   const [busy, setBusy] = useState(false);
 
   const save = async (e) => {
     e.preventDefault();
     setBusy(true);
     try {
-      const updated = { instagram, tiktok, youtube, facebook };
+      const res = await api('/users/me', { method: 'PATCH', body: { location } });
+      onSaved(res.user?.location || location);
+    } catch {}
+    setBusy(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md rounded-3xl border border-zinc-200 dark:border-[#262a3e] bg-white dark:bg-[#161926] p-6 shadow-2xl">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            <h3 className="text-base font-bold text-zinc-900 dark:text-white">Edit Store Location</h3>
+          </div>
+          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <form onSubmit={save} className="space-y-4">
+          <PlaceInput value={location} onChange={setLocation} />
+          <button type="submit" disabled={busy} className="btn-primary w-full py-2.5 text-xs font-bold mt-4">
+            {busy ? 'Saving Location...' : 'Save Location'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function SocialModal({ initialSocials, onClose, onSaved }) {
+  const [instagram, setInstagram] = useState(initialSocials.instagram || '');
+  const [tiktok, setTiktok] = useState(initialSocials.tiktok || '');
+  const [youtube, setYoutube] = useState(initialSocials.youtube || '');
+  const [facebook, setFacebook] = useState(initialSocials.facebook || '');
+  const [website, setWebsite] = useState(initialSocials.website || '');
+  const [busy, setBusy] = useState(false);
+
+  const save = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const updated = { instagram, tiktok, youtube, facebook, website };
       await api('/users/me', { method: 'PATCH', body: { socials: updated } });
       onSaved(updated);
     } catch {}
@@ -815,15 +1376,23 @@ function SocialModal({ initialSocials, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="w-full max-w-md rounded-3xl border border-zinc-200 dark:border-[#262a3e] bg-white dark:bg-[#161926] p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-bold text-zinc-900 dark:text-white">Link Social Accounts</h3>
+          <h3 className="text-base font-bold text-zinc-900 dark:text-white">Link Social &amp; Web Accounts</h3>
           <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white">
             <X className="h-5 w-5" />
           </button>
         </div>
         <form onSubmit={save} className="space-y-3">
           <div>
+            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Official Website URL</label>
+            <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://yourwebsite.com" className="input text-xs" />
+          </div>
+          <div>
             <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Instagram Handle / URL</label>
             <input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="@your_instagram" className="input text-xs" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Facebook Page URL</label>
+            <input value={facebook} onChange={(e) => setFacebook(e.target.value)} placeholder="https://facebook.com/yourpage" className="input text-xs" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">TikTok Handle / URL</label>
@@ -922,27 +1491,382 @@ function CategoryModal({ currentCategory, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="w-full max-w-md rounded-3xl border border-zinc-200 dark:border-[#262a3e] bg-white dark:bg-[#161926] p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-bold text-zinc-900 dark:text-white">Edit Category</h3>
+          <h3 className="text-base font-bold text-zinc-900 dark:text-white">Edit Industry Category</h3>
           <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white">
             <X className="h-5 w-5" />
           </button>
         </div>
         <form onSubmit={save} className="space-y-4">
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {categories.map((c) => (
               <button
                 key={c}
                 type="button"
                 onClick={() => setCategory(c)}
-                className={`chip capitalize text-xs ${category === c ? 'chip-active' : ''}`}
+                className={`flex items-center justify-center rounded-2xl border px-3 py-2.5 text-xs font-bold capitalize transition-all cursor-pointer ${
+                  category === c
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md ring-2 ring-indigo-300 dark:ring-indigo-700'
+                    : 'bg-zinc-50 dark:bg-[#1a1d2d] text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-[#262a3e] hover:border-indigo-400 dark:hover:border-indigo-500'
+                }`}
               >
                 {c}
               </button>
             ))}
           </div>
           <button type="submit" disabled={busy} className="btn-primary w-full py-2.5 text-xs font-bold mt-4">
-            {busy ? 'Saving...' : 'Save Category'}
+            {busy ? 'Saving Category...' : 'Save Category'}
           </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function parseModalPaymentDetails(pd) {
+  const provider = pd?.provider || 'esewa';
+  return {
+    provider,
+    esewa: {
+      qrCodeURL: pd?.esewa?.qrCodeURL || (provider === 'esewa' ? pd?.qrCodeURL : '') || '',
+      accountName: pd?.esewa?.accountName || (provider === 'esewa' ? pd?.accountName : '') || '',
+      accountNumber: pd?.esewa?.accountNumber || (provider === 'esewa' ? pd?.accountNumber : '') || '',
+      notes: pd?.esewa?.notes || (provider === 'esewa' ? pd?.notes : '') || ''
+    },
+    khalti: {
+      qrCodeURL: pd?.khalti?.qrCodeURL || (provider === 'khalti' ? pd?.qrCodeURL : '') || '',
+      accountName: pd?.khalti?.accountName || (provider === 'khalti' ? pd?.accountName : '') || '',
+      accountNumber: pd?.khalti?.accountNumber || (provider === 'khalti' ? pd?.accountNumber : '') || '',
+      notes: pd?.khalti?.notes || (provider === 'khalti' ? pd?.notes : '') || ''
+    },
+    fonepay: {
+      qrCodeURL: pd?.fonepay?.qrCodeURL || (provider === 'fonepay' ? pd?.qrCodeURL : '') || '',
+      accountName: pd?.fonepay?.accountName || (provider === 'fonepay' ? pd?.accountName : '') || '',
+      accountNumber: pd?.fonepay?.accountNumber || (provider === 'fonepay' ? pd?.accountNumber : '') || '',
+      notes: pd?.fonepay?.notes || (provider === 'fonepay' ? pd?.notes : '') || ''
+    },
+    bank: {
+      bankName: pd?.bank?.bankName || (provider === 'bank' ? pd?.bankName : '') || NEPAL_BANKS[0],
+      accountName: pd?.bank?.accountName || (provider === 'bank' ? pd?.accountName : '') || '',
+      accountNumber: pd?.bank?.accountNumber || (provider === 'bank' ? pd?.accountNumber : '') || '',
+      notes: pd?.bank?.notes || (provider === 'bank' ? pd?.notes : '') || ''
+    }
+  };
+}
+
+function PaymentQRModal({ initialPaymentDetails, onClose, onSaved }) {
+  const parsed = parseModalPaymentDetails(initialPaymentDetails);
+  const [methods, setMethods] = useState(parsed);
+  const [activeProvider, setActiveProvider] = useState(parsed.provider || 'esewa');
+  const [busy, setBusy] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const currentData = methods[activeProvider] || {};
+  const isBank = activeProvider === 'bank';
+
+  const updateField = (field, val) => {
+    setMethods((prev) => ({
+      ...prev,
+      [activeProvider]: {
+        ...prev[activeProvider],
+        [field]: val
+      }
+    }));
+  };
+
+  const handleQRUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadBusy(true);
+    setError('');
+    const fd = new FormData();
+    fd.append('qrCode', file);
+    try {
+      const res = await api(`/users/payment-qr?provider=${activeProvider}`, { method: 'POST', formData: fd });
+      updateField('qrCodeURL', res.qrCodeURL);
+    } catch (err) {
+      setError(err.message || 'Failed to upload QR code');
+    } finally {
+      setUploadBusy(false);
+    }
+  };
+
+  const save = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      const updated = {
+        ...methods,
+        provider: activeProvider
+      };
+      const res = await api('/users/me', {
+        method: 'PATCH',
+        body: { paymentDetails: updated }
+      });
+      onSaved(res.user?.paymentDetails || updated);
+    } catch (err) {
+      setError(err.message || 'Failed to save payment details');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="my-8 w-full max-w-lg rounded-3xl border border-zinc-200 dark:border-[#262a3e] bg-white dark:bg-[#161926] p-6 shadow-2xl">
+        <div className="flex items-center justify-between mb-4 pb-2 border-b border-zinc-100 dark:border-[#262a3e]">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-[#6366f1] dark:bg-[#232542] dark:text-[#818cf8]">
+              <QrCode className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white">Payout & Payment Details</h3>
+              <p className="text-[11px] text-zinc-500 dark:text-[#8e95af]">Each method has its own independent QR code and details</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 rounded-xl bg-red-50 dark:bg-red-950/40 p-3 text-xs text-red-600 dark:text-red-400 font-medium">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={save} className="space-y-4 text-xs">
+          {/* Provider Selector with Brand Logos */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="font-semibold text-zinc-700 dark:text-zinc-300">
+                Select Payout Method to Edit
+              </label>
+              <span className="text-[10px] font-bold text-emerald-600 uppercase bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                Active: {getProviderConfig(activeProvider).label}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {PAYMENT_PROVIDERS.map((p) => {
+                const LogoComponent = p.logo;
+                const isSelected = activeProvider === p.id;
+                const hasData = p.id === 'bank'
+                  ? Boolean(methods.bank?.accountNumber)
+                  : Boolean(methods[p.id]?.qrCodeURL || methods[p.id]?.accountNumber);
+
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setActiveProvider(p.id)}
+                    className={`relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border p-2.5 text-center font-bold transition-all ${
+                      isSelected
+                        ? `${p.activeClass} ring-2 ring-indigo-400/40`
+                        : 'border-zinc-200 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#121522] text-zinc-700 dark:text-zinc-300 hover:border-zinc-400'
+                    }`}
+                  >
+                    {hasData && (
+                      <span className="absolute top-1.5 right-1.5 flex h-2 w-2 rounded-full bg-emerald-500" title="Configured" />
+                    )}
+                    <LogoComponent className="h-6 w-6" />
+                    <span className="text-[11px] leading-tight">{p.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Bank Selection if Bank Transfer (NO QR) */}
+          {isBank ? (
+            <div className="space-y-3 rounded-2xl border border-blue-100 dark:border-blue-900/40 bg-blue-50/40 dark:bg-blue-950/20 p-3.5">
+              <div className="flex items-center justify-between pb-1 border-b border-blue-100 dark:border-blue-900/30">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900 dark:text-blue-300">
+                  <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <span>Nepal Bank Account Details</span>
+                </div>
+                <span className="text-[10px] text-blue-600 font-semibold bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
+                  No QR Code Needed
+                </span>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  Bank Name (Top 10 Banks of Nepal)
+                </label>
+                <select
+                  value={currentData.bankName || NEPAL_BANKS[0]}
+                  onChange={(e) => updateField('bankName', e.target.value)}
+                  className="input py-2 text-xs bg-white dark:bg-[#161926] font-medium"
+                >
+                  {NEPAL_BANKS.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                <div>
+                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                    Account Holder Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={currentData.accountName || ''}
+                    onChange={(e) => updateField('accountName', e.target.value)}
+                    placeholder="e.g. Ram Bahadur Thapa"
+                    className="input text-xs bg-white dark:bg-[#161926]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                    Bank Account Number
+                  </label>
+                  <input
+                    type="text"
+                    value={currentData.accountNumber || ''}
+                    onChange={(e) => updateField('accountNumber', e.target.value)}
+                    placeholder="e.g. 01234567890123"
+                    className="input text-xs font-mono bg-white dark:bg-[#161926]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  Bank Branch / Remarks (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={currentData.notes || ''}
+                  onChange={(e) => updateField('notes', e.target.value)}
+                  placeholder="e.g. New Road Branch, Kathmandu"
+                  className="input text-xs bg-white dark:bg-[#161926]"
+                />
+              </div>
+            </div>
+          ) : (
+            /* Digital Wallet Fields (eSewa / Khalti / Fonepay) with Separate QR */
+            <div className="space-y-3 rounded-2xl border border-zinc-200 dark:border-[#262a3e] bg-zinc-50/60 dark:bg-[#121522] p-3.5">
+              <div className="flex items-center justify-between pb-1 border-b border-zinc-200/70 dark:border-[#262a3e]">
+                <span className="font-bold text-zinc-900 dark:text-white">
+                  {getProviderConfig(activeProvider).label} Dedicated Info &amp; QR
+                </span>
+                <span className="text-[10px] text-zinc-500">
+                  Unique to {getProviderConfig(activeProvider).label}
+                </span>
+              </div>
+
+              {/* Dedicated QR Code Upload / Preview */}
+              <div>
+                <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                  {getProviderConfig(activeProvider).label} QR Code Image
+                </label>
+                <div className="flex items-center gap-4 rounded-xl border border-zinc-200 dark:border-[#262a3e] bg-white dark:bg-[#161926] p-3.5">
+                  {currentData.qrCodeURL ? (
+                    <div className="relative group shrink-0">
+                      <img
+                        src={currentData.qrCodeURL}
+                        alt={`${activeProvider} QR`}
+                        className="h-20 w-20 rounded-xl object-contain bg-white border border-zinc-200 p-1 shadow-2xs"
+                      />
+                      <label className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white rounded-xl opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity text-[10px] font-bold">
+                        <span>Change</span>
+                        <input type="file" accept="image/*" className="hidden" onChange={handleQRUpload} disabled={uploadBusy} />
+                      </label>
+                    </div>
+                  ) : (
+                    <label className="flex h-20 w-20 flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-300 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#1a1d2d] text-zinc-400 hover:border-[#6366f1] cursor-pointer shrink-0 transition-colors">
+                      <QrCode className="h-5 w-5 mb-1" />
+                      <span className="text-[10px] font-bold">Upload QR</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleQRUpload} disabled={uploadBusy} />
+                    </label>
+                  )}
+
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-zinc-900 dark:text-white">
+                      {currentData.qrCodeURL ? `${getProviderConfig(activeProvider).label} QR Linked` : `No QR for ${getProviderConfig(activeProvider).label}`}
+                    </p>
+                    <p className="text-[11px] text-zinc-500 dark:text-[#8e95af] mt-0.5">
+                      Upload your official {getProviderConfig(activeProvider).label} QR image.
+                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <label className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-300 dark:border-[#262a3e] bg-white dark:bg-[#1a1d2d] px-2.5 py-1 text-[11px] font-bold text-zinc-700 dark:text-zinc-200 cursor-pointer hover:bg-zinc-50 dark:hover:bg-[#232542] transition-colors">
+                        {uploadBusy ? 'Uploading...' : currentData.qrCodeURL ? 'Replace QR' : 'Choose QR File'}
+                        <input type="file" accept="image/*" className="hidden" onChange={handleQRUpload} disabled={uploadBusy} />
+                      </label>
+                      {currentData.qrCodeURL && (
+                        <button
+                          type="button"
+                          onClick={() => updateField('qrCodeURL', '')}
+                          className="text-[11px] font-bold text-red-600 hover:underline"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Account Holder Name */}
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                <div>
+                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                    Account Holder Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={currentData.accountName || ''}
+                    onChange={(e) => updateField('accountName', e.target.value)}
+                    placeholder="e.g. Ram Sharma"
+                    className="input text-xs bg-white dark:bg-[#161926]"
+                  />
+                </div>
+
+                {/* Mobile or Account Number */}
+                <div>
+                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                    {getProviderConfig(activeProvider).label} Mobile / ID Number
+                  </label>
+                  <input
+                    type="text"
+                    value={currentData.accountNumber || ''}
+                    onChange={(e) => updateField('accountNumber', e.target.value)}
+                    placeholder="e.g. 9841234567"
+                    className="input text-xs font-mono bg-white dark:bg-[#161926]"
+                  />
+                </div>
+              </div>
+
+              {/* Notes / Instructions */}
+              <div>
+                <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  Transfer Remarks / Notes (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={currentData.notes || ''}
+                  onChange={(e) => updateField('notes', e.target.value)}
+                  placeholder="e.g. remarks or transfer reference"
+                  className="input text-xs bg-white dark:bg-[#161926]"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={busy || uploadBusy}
+              className="btn-primary w-full py-3 text-xs font-bold"
+            >
+              {busy ? 'Saving Payout Details...' : `Save & Set ${getProviderConfig(activeProvider).label} as Active`}
+            </button>
+          </div>
         </form>
       </div>
     </div>

@@ -112,7 +112,8 @@ export default function YourWork() {
       ) : (
         <div className="space-y-4">
           {displayedDeals.map((p) => {
-            const isFromMe = String(p.fromUserId?._id || p.fromUserId) === String(user.id);
+            const currentUserId = String(user?.id || user?._id);
+            const isFromMe = String(p.fromUserId?._id || p.fromUserId) === currentUserId;
             const other = isFromMe ? p.toUserId : p.fromUserId;
             const [lng, lat] = p.meetupLocation?.coordinates || [0, 0];
             const hasMeetup = p.meetupLocation?.address || (lat && lng);

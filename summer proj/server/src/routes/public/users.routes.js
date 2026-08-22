@@ -14,8 +14,11 @@ const router = Router();
 
 const locationSchema = z.object({
   type: z.literal('Point').default('Point'),
-  coordinates: z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]),
-  address: z.string().default('')
+  coordinates: z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]).default([0, 0]),
+  address: z.string().default(''),
+  country: z.string().max(100).optional().default(''),
+  state: z.string().max(100).optional().default(''),
+  city: z.string().max(100).optional().default('')
 });
 
 const profileSchema = z.object({
@@ -33,6 +36,33 @@ const workSampleSchema = z.object({
   description: z.string().max(500).default('')
 });
 
+const methodDetailsSchema = z.object({
+  qrCodeURL: z.string().max(500).optional().or(z.literal('')),
+  accountName: z.string().max(100).optional().or(z.literal('')),
+  accountNumber: z.string().max(100).optional().or(z.literal('')),
+  notes: z.string().max(500).optional().or(z.literal(''))
+});
+
+const bankDetailsSchema = z.object({
+  bankName: z.string().max(120).optional().or(z.literal('')),
+  accountName: z.string().max(100).optional().or(z.literal('')),
+  accountNumber: z.string().max(100).optional().or(z.literal('')),
+  notes: z.string().max(500).optional().or(z.literal(''))
+});
+
+const paymentDetailsSchema = z.object({
+  provider: z.enum(['esewa', 'khalti', 'fonepay', 'bank', '']).optional(),
+  esewa: methodDetailsSchema.optional(),
+  khalti: methodDetailsSchema.optional(),
+  fonepay: methodDetailsSchema.optional(),
+  bank: bankDetailsSchema.optional(),
+  qrCodeURL: z.string().max(500).optional().or(z.literal('')),
+  bankName: z.string().max(120).optional().or(z.literal('')),
+  accountName: z.string().max(100).optional().or(z.literal('')),
+  accountNumber: z.string().max(100).optional().or(z.literal('')),
+  notes: z.string().max(500).optional().or(z.literal(''))
+});
+
 const updateSchema = z.object({
   name: z.string().min(1).max(80).optional(),
   bio: z.string().max(1000).optional(),
@@ -47,7 +77,8 @@ const updateSchema = z.object({
     facebook: z.string().max(200).optional(),
     website: z.string().max(200).optional()
   }).optional(),
-  works: z.array(workSampleSchema).optional()
+  works: z.array(workSampleSchema).optional(),
+  paymentDetails: paymentDetailsSchema.optional()
 });
 
 router.get('/search', requireAuth, asyncHandler(async (req, res) => {
@@ -75,7 +106,7 @@ router.get('/search', requireAuth, asyncHandler(async (req, res) => {
 
 router.get('/:id', requireAuth, asyncHandler(async (req, res) => {
   const user = await User.findById(req.params.id)
-    .select('name role photoURL coverURL bio category location socials works verificationStatus rating workCompleted workInProgress createdAt');
+    .select('name role photoURL coverURL bio category location socials works paymentDetails verificationStatus rating workCompleted workInProgress createdAt');
   if (!user) throw new ApiError(404, 'User not found');
   const reviews = await Review.find({ revieweeId: user._id }).populate('reviewerId', 'name photoURL').limit(10);
   const events = await Event.find({ createdBy: user._id }).sort({ createdAt: -1 }).limit(20);
@@ -100,6 +131,46 @@ router.patch('/me', requireAuth, validate(updateSchema), asyncHandler(async (req
   for (const key of ['name', 'bio', 'category', 'photoURL', 'coverURL', 'location', 'socials', 'works']) {
     if (data[key] !== undefined) user[key] = data[key];
   }
+  if (data.paymentDetails !== undefined) {
+    const current = user.paymentDetails?.toObject ? user.paymentDetails.toObject() : (user.paymentDetails || {});
+    const merged = {
+      ...current,
+      ...data.paymentDetails,
+      esewa: { ...(current.esewa || {}), ...(data.paymentDetails.esewa || {}) },
+      khalti: { ...(current.khalti || {}), ...(data.paymentDetails.khalti || {}) },
+      fonepay: { ...(current.fonepay || {}), ...(data.paymentDetails.fonepay || {}) },
+      bank: { ...(current.bank || {}), ...(data.paymentDetails.bank || {}) }
+    };
+    const prov = merged.provider || 'esewa';
+    if (prov === 'bank') {
+      if (data.paymentDetails.bankName) merged.bank.bankName = data.paymentDetails.bankName;
+      if (data.paymentDetails.accountName) merged.bank.accountName = data.paymentDetails.accountName;
+      if (data.paymentDetails.accountNumber) merged.bank.accountNumber = data.paymentDetails.accountNumber;
+      if (data.paymentDetails.notes) merged.bank.notes = data.paymentDetails.notes;
+
+      merged.qrCodeURL = '';
+      merged.bankName = merged.bank?.bankName || 'Nabil Bank';
+      merged.accountName = merged.bank?.accountName || '';
+      merged.accountNumber = merged.bank?.accountNumber || '';
+      merged.notes = merged.bank?.notes || '';
+    } else if (['esewa', 'khalti', 'fonepay'].includes(prov)) {
+      if (!merged[prov]) merged[prov] = {};
+      if (data.paymentDetails.accountName) merged[prov].accountName = data.paymentDetails.accountName;
+      if (data.paymentDetails.accountNumber) merged[prov].accountNumber = data.paymentDetails.accountNumber;
+      if (data.paymentDetails.notes) merged[prov].notes = data.paymentDetails.notes;
+      if (data.paymentDetails.qrCodeURL) merged[prov].qrCodeURL = data.paymentDetails.qrCodeURL;
+
+      const provData = merged[prov] || {};
+      merged.qrCodeURL = provData.qrCodeURL || '';
+      merged.bankName = '';
+      merged.accountName = provData.accountName || '';
+      merged.accountNumber = provData.accountNumber || '';
+      merged.notes = provData.notes || '';
+    }
+
+    user.paymentDetails = merged;
+    user.markModified('paymentDetails');
+  }
   await user.save();
   res.json({ user });
 }));
@@ -113,6 +184,35 @@ router.post('/photo', requireAuth, uploadLimiter, upload.single('photo'), asyncH
   req.user.photoURL = `/files/${blobPath}`;
   await req.user.save();
   res.json({ user: req.user, photoURL: req.user.photoURL });
+}));
+
+router.post('/payment-qr', requireAuth, uploadLimiter, upload.single('qrCode'), asyncHandler(async (req, res) => {
+  if (!req.file) throw new ApiError(400, 'No QR code image uploaded');
+  validateUploadedFiles([req.file], { imagesOnly: true });
+  const ext = req.file.mimetype.split('/')[1] || 'png';
+  const blobPath = `payment-qr/${req.user._id}-${Date.now()}.${ext}`;
+  await storage.upload({ blobPath, data: req.file.buffer, contentType: req.file.mimetype });
+
+  const prov = req.query.provider || req.body?.provider || req.user.paymentDetails?.provider || 'esewa';
+  const qrCodeURL = `/files/${blobPath}`;
+
+  if (!req.user.paymentDetails) {
+    req.user.paymentDetails = { provider: prov };
+  }
+
+  if (['esewa', 'khalti', 'fonepay'].includes(prov)) {
+    if (!req.user.paymentDetails[prov]) {
+      req.user.paymentDetails[prov] = {};
+    }
+    req.user.paymentDetails[prov].qrCodeURL = qrCodeURL;
+    if (req.user.paymentDetails.provider === prov) {
+      req.user.paymentDetails.qrCodeURL = qrCodeURL;
+    }
+  }
+
+  req.user.markModified('paymentDetails');
+  await req.user.save();
+  res.json({ user: req.user, qrCodeURL, provider: prov, paymentDetails: req.user.paymentDetails });
 }));
 
 export default router;

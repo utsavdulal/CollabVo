@@ -12,6 +12,9 @@ import { UserCard } from '../components/home/UserCard.jsx';
 import { Spinner } from '../components/ui/Spinner.jsx';
 import { PostEventModal } from '../components/ui/PostEventModal.jsx';
 import { ReportModal } from '../components/ui/ReportModal.jsx';
+import { CampaignsMapView } from '../components/maps/CampaignsMapView.jsx';
+import { NearbyEventsMap } from '../components/maps/NearbyEventsMap.jsx';
+import { Map, LayoutGrid } from 'lucide-react';
 
 const CATEGORIES_DATA = [
   { id: 'automotive', label: 'Automotive', icon: '🚗' },
@@ -49,6 +52,7 @@ export default function Home() {
   // Creator state
   const [feedFilter, setFeedFilter] = useState('All');
   const [sortOrder, setSortOrder] = useState('latest');
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'map'
   const [radius, setRadius] = useState(25);
   const [events, setEvents] = useState([]);
   const [featured, setFeatured] = useState([]);
@@ -435,50 +439,71 @@ export default function Home() {
         </div>
       )}
 
-      {/* Nearby Events Section */}
-      <div className="rounded-3xl border border-zinc-200 bg-white dark:border-[#262a3e] dark:bg-[#1a1d2d] p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-extrabold text-zinc-900 dark:text-white">Nearby Events</h2>
-          <div className="flex items-center gap-1 rounded-full bg-zinc-100 dark:bg-[#121522] px-3 py-1 text-xs font-bold text-indigo-700 dark:text-[#818cf8] border border-zinc-200 dark:border-[#262a3e]">
-            <span>🏠 Home · {user?.location?.address || 'Gaisar'}</span>
-            <ChevronDown className="h-3.5 w-3.5" />
-          </div>
-        </div>
+      {/* Nearby Events Interactive Map Section */}
+      <NearbyEventsMap
+        events={events}
+        userLocation={user?.location}
+        savedIds={savedIds}
+        onToggleSave={toggleSave}
+      />
 
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 dark:border-[#262a3e] dark:bg-[#121522] py-8 text-center">
-          <Navigation className="h-7 w-7 text-[#6366f1] dark:text-[#818cf8] mb-2 rotate-45" />
-          <p className="text-xs font-bold text-zinc-900 dark:text-white mb-3">
-            No events within {radius} km
-          </p>
-          <button
-            type="button"
-            onClick={() => setRadius((r) => (r === 25 ? 50 : 25))}
-            className="btn-primary py-2 px-5 text-xs font-bold"
-          >
-            Expand to {radius === 25 ? '50 km' : '25 km'}
-          </button>
-        </div>
-      </div>
-
-      {/* All Events Header with count & sort */}
-      <div className="flex items-center justify-between pt-1">
+      {/* All Events Header with count, view toggle & sort */}
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <h2 className="text-base font-extrabold text-zinc-900 dark:text-white">
           All Events · {displayedEvents.length}
         </h2>
-        <div className="flex items-center gap-1 text-xs font-semibold text-zinc-800 dark:text-white bg-white dark:bg-[#1a1d2d] border border-zinc-200 dark:border-[#262a3e] rounded-xl px-3 py-1.5">
-          <span>Date ({sortOrder === 'latest' ? 'Latest' : 'Oldest'})</span>
-          <button
-            type="button"
-            onClick={() => setSortOrder((s) => (s === 'latest' ? 'oldest' : 'latest'))}
-            className="ml-1 text-[#6366f1] dark:text-[#818cf8]"
-          >
-            <ChevronDown className="h-3.5 w-3.5" />
-          </button>
+
+        <div className="flex items-center gap-2">
+          {/* Grid / Map View Toggle */}
+          <div className="flex items-center rounded-xl bg-zinc-100 dark:bg-[#121522] p-0.5 border border-zinc-200 dark:border-[#262a3e]">
+            <button
+              type="button"
+              onClick={() => setViewMode('grid')}
+              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                viewMode === 'grid'
+                  ? 'bg-white dark:bg-[#1a1d2d] text-indigo-600 dark:text-[#818cf8] shadow-xs'
+                  : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-white'
+              }`}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span>Grid</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('map')}
+              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                viewMode === 'map'
+                  ? 'bg-white dark:bg-[#1a1d2d] text-indigo-600 dark:text-[#818cf8] shadow-xs'
+                  : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-white'
+              }`}
+            >
+              <Map className="h-3.5 w-3.5" />
+              <span>Map</span>
+            </button>
+          </div>
+
+          {/* Date Sort Dropdown */}
+          <div className="flex items-center gap-1 text-xs font-semibold text-zinc-800 dark:text-white bg-white dark:bg-[#1a1d2d] border border-zinc-200 dark:border-[#262a3e] rounded-xl px-3 py-1.5">
+            <span>Date ({sortOrder === 'latest' ? 'Latest' : 'Oldest'})</span>
+            <button
+              type="button"
+              onClick={() => setSortOrder((s) => (s === 'latest' ? 'oldest' : 'latest'))}
+              className="ml-1 text-[#6366f1] dark:text-[#818cf8]"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Events Grid */}
-      {loading ? (
+      {/* Events View: Map or Grid */}
+      {viewMode === 'map' ? (
+        <CampaignsMapView
+          items={displayedEvents}
+          userLocation={user?.location}
+          height="h-[480px]"
+        />
+      ) : loading ? (
         <div className="flex justify-center py-16"><Spinner /></div>
       ) : displayedEvents.length === 0 ? (
         <div className="rounded-3xl border border-zinc-200 bg-white dark:border-[#262a3e] dark:bg-[#1a1d2d] p-12 text-center text-xs text-zinc-400">

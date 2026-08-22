@@ -10,27 +10,43 @@ import { Spinner } from '../components/ui/Spinner.jsx';
 import { useAuthStore } from '../store/authStore.js';
 import { ReportModal } from '../components/ui/ReportModal.jsx';
 import { SubmitProposalModal } from '../components/ui/SubmitProposalModal.jsx';
+import { GoogleMapViewer } from '../components/maps/GoogleMapViewer.jsx';
 
 export default function EventDetail() {
   const { id } = useParams();
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
+  const [userProposal, setUserProposal] = useState(null);
   const [error, setError] = useState('');
   const [reportOpen, setReportOpen] = useState(false);
   const [proposalOpen, setProposalOpen] = useState(false);
 
-  useEffect(() => {
+  const load = () => {
     api(`/events/${id}`)
       .then((d) => setEvent(d.event))
       .catch((err) => setError(err.message));
-  }, [id]);
+
+    if (user?.role === 'creator') {
+      api('/proposals')
+        .then((d) => {
+          const match = (d.proposals || []).find(
+            (p) => String(p.eventId?._id || p.eventId) === String(id) && ['pending', 'accepted'].includes(p.status)
+          );
+          setUserProposal(match || null);
+        })
+        .catch(() => {});
+    }
+  };
+
+  useEffect(load, [id, user]);
 
   if (error) return <p className="py-16 text-center text-sm text-red-500">{error}</p>;
   if (!event) return <div className="flex justify-center py-16"><Spinner /></div>;
 
   const owner = event.createdBy;
   const isOwner = owner && String(owner._id) === String(user?.id);
+  const isFilled = event.status === 'filled' || (event.creatorsNeeded && (event.creatorsHired || 0) >= event.creatorsNeeded);
   const [lng, lat] = event.location?.coordinates || [0, 0];
 
   return (
@@ -67,6 +83,11 @@ export default function EventDetail() {
               {event.category}
             </div>
           )}
+          {isFilled && (
+            <div className="absolute top-4 right-4 rounded-full bg-amber-500 px-3.5 py-1 text-xs font-black text-white uppercase tracking-wider shadow-lg">
+              Campaign Full
+            </div>
+          )}
         </div>
         <div className="p-6">
           <div className="flex items-center justify-between">
@@ -86,6 +107,33 @@ export default function EventDetail() {
             </p>
           )}
 
+          {/* Deliverable Requirements & Slot Progress */}
+          <div className="mt-4 rounded-2xl border border-indigo-100 dark:border-indigo-950/80 bg-indigo-50/50 dark:bg-[#161a2e] p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-extrabold text-indigo-900 dark:text-indigo-300 uppercase tracking-wider">
+                Deliverables Required
+              </h4>
+              <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400 bg-white dark:bg-[#20253e] px-2.5 py-1 rounded-xl border border-indigo-200/60 dark:border-indigo-800">
+                👥 {event.creatorsHired || 0} / {event.creatorsNeeded || 1} Creators Hired
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2.5 text-center">
+              <div className="rounded-xl bg-white dark:bg-[#121522] p-2.5 border border-indigo-100/70 dark:border-[#262a3e]">
+                <p className="text-sm font-black text-zinc-900 dark:text-white">{event.deliverables?.videos ?? 1}</p>
+                <p className="text-[10px] font-semibold text-zinc-500 dark:text-[#8e95af] mt-0.5">🎥 Videos</p>
+              </div>
+              <div className="rounded-xl bg-white dark:bg-[#121522] p-2.5 border border-indigo-100/70 dark:border-[#262a3e]">
+                <p className="text-sm font-black text-zinc-900 dark:text-white">{event.deliverables?.posts ?? 1}</p>
+                <p className="text-[10px] font-semibold text-zinc-500 dark:text-[#8e95af] mt-0.5">📸 Feed Posts</p>
+              </div>
+              <div className="rounded-xl bg-white dark:bg-[#121522] p-2.5 border border-indigo-100/70 dark:border-[#262a3e]">
+                <p className="text-sm font-black text-zinc-900 dark:text-white">{event.deliverables?.storyMentions ?? 1}</p>
+                <p className="text-[10px] font-semibold text-zinc-500 dark:text-[#8e95af] mt-0.5">💬 Stories</p>
+              </div>
+            </div>
+          </div>
+
           <div className="mt-5 grid gap-3 sm:grid-cols-3 border-t border-zinc-100 dark:border-[#262a3e] pt-4 text-xs">
             {event.location?.address && (
               <div className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
@@ -101,7 +149,7 @@ export default function EventDetail() {
             )}
             <div className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">
               <Banknote className="h-4 w-4 shrink-0" />
-              <span>Budget: Rs. {event.budget > 0 ? event.budget.toLocaleString() : 'Negotiable'}</span>
+              <span>Budget: Rs. {event.budget > 0 ? `${event.budget.toLocaleString()} / creator` : 'Negotiable'}</span>
             </div>
           </div>
         </div>
@@ -142,6 +190,16 @@ export default function EventDetail() {
         </div>
       )}
 
+      {/* Shoot / Event Location Google Map */}
+      {(event.location?.coordinates?.[0] || event.location?.coordinates?.[1] || event.location?.address) && (
+        <GoogleMapViewer
+          coordinates={event.location?.coordinates || [0, 0]}
+          address={event.location?.address}
+          title={`${event.title} · Shoot / Event Location`}
+          height="h-52"
+        />
+      )}
+
       {/* Bottom Action Bar */}
       <div className="flex gap-2.5 pt-2">
         {isOwner ? (
@@ -151,6 +209,31 @@ export default function EventDetail() {
           >
             View Proposals for this Campaign &rarr;
           </Link>
+        ) : userProposal ? (
+          <div className="w-full flex items-center justify-between p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900">
+            <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 text-xs font-bold">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <span>
+                {userProposal.status === 'accepted'
+                  ? 'Proposal Accepted · Escrow Secured'
+                  : 'Application Submitted · Waiting for Business Review'}
+              </span>
+            </div>
+            <Link
+              to={`/proposal/${userProposal._id}`}
+              className="text-xs font-black text-emerald-700 dark:text-emerald-400 hover:underline"
+            >
+              View Proposal &rarr;
+            </Link>
+          </div>
+        ) : isFilled ? (
+          <button
+            type="button"
+            disabled
+            className="w-full py-3.5 text-sm font-bold text-zinc-400 bg-zinc-100 dark:bg-[#1f2335] rounded-2xl cursor-not-allowed text-center"
+          >
+            All Creator Slots Filled for this Campaign
+          </button>
         ) : (
           <button
             type="button"
@@ -166,6 +249,7 @@ export default function EventDetail() {
         open={proposalOpen}
         onClose={() => setProposalOpen(false)}
         event={event}
+        onSubmitted={load}
       />
 
       {owner && (

@@ -16,10 +16,20 @@ const eventSchema = new Schema(
     date: { type: Date },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
     description: { type: String, default: '' },
-    budget: { type: Number, default: 0 }
+    budget: { type: Number, default: 0 },
+    deliverables: {
+      videos: { type: Number, default: 0 },
+      posts: { type: Number, default: 0 },
+      storyMentions: { type: Number, default: 0 }
+    },
+    creatorsNeeded: { type: Number, default: 1 },
+    creatorsHired: { type: Number, default: 0 },
+    status: { type: String, enum: ['open', 'filled', 'completed', 'cancelled'], default: 'open' }
   },
   { timestamps: true }
 );
+
+eventSchema.index({ status: 1 });
 
 eventSchema.index({ location: '2dsphere' });
 eventSchema.index({ category: 1, platform: 1 });

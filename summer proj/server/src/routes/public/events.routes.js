@@ -17,6 +17,12 @@ const eventSchema = z.object({
   platform: z.string().max(40).default(''),
   image: z.string().max(500).default(''),
   budget: z.number().min(0).default(0),
+  deliverables: z.object({
+    videos: z.number().min(0).default(0),
+    posts: z.number().min(0).default(0),
+    storyMentions: z.number().min(0).default(0)
+  }).optional().default({ videos: 0, posts: 0, storyMentions: 0 }),
+  creatorsNeeded: z.number().min(1).max(50).default(1),
   date: z.string().datetime().optional(),
   location: z.object({
     coordinates: z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]),
@@ -33,6 +39,8 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
     query.createdBy = req.user._id;
   } else if (createdBy) {
     query.createdBy = createdBy;
+  } else {
+    query.status = { $ne: 'filled' };
   }
 
   if (q && q.trim()) {
@@ -61,7 +69,7 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
 }));
 
 router.get('/featured', requireAuth, asyncHandler(async (_req, res) => {
-  const events = await Event.find()
+  const events = await Event.find({ status: { $ne: 'filled' } })
     .sort({ createdAt: -1 })
     .populate('createdBy', 'name photoURL category verificationStatus')
     .limit(10);
@@ -71,10 +79,13 @@ router.get('/featured', requireAuth, asyncHandler(async (_req, res) => {
 router.get('/nearby', requireAuth, asyncHandler(async (req, res) => {
   const { lat, lng, radiusKm = 25 } = req.query;
   if (!lat || !lng) {
-    const events = await Event.find().populate('createdBy', 'name photoURL category verificationStatus').limit(20);
+    const events = await Event.find({ status: { $ne: 'filled' } })
+      .populate('createdBy', 'name photoURL category verificationStatus')
+      .limit(20);
     return res.json({ events });
   }
   const events = await Event.find({
+    status: { $ne: 'filled' },
     location: {
       $near: {
         $geometry: { type: 'Point', coordinates: [Number(lng), Number(lat)] },

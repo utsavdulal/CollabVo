@@ -54,6 +54,7 @@ function publicUser(user) {
     category: user.category,
     location: user.location,
     socials: user.socials,
+    paymentDetails: user.paymentDetails,
     verificationStatus: user.verificationStatus,
     emailVerified: user.emailVerified,
     workCompleted: user.workCompleted,

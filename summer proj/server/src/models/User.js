@@ -20,6 +20,42 @@ const workSampleSchema = new Schema(
   { timestamps: true }
 );
 
+const methodDetailsSchema = new Schema(
+  {
+    qrCodeURL: { type: String, default: '' },
+    accountName: { type: String, default: '' },
+    accountNumber: { type: String, default: '' },
+    notes: { type: String, default: '' }
+  },
+  { _id: false }
+);
+
+const bankDetailsSchema = new Schema(
+  {
+    bankName: { type: String, default: 'Nabil Bank' },
+    accountName: { type: String, default: '' },
+    accountNumber: { type: String, default: '' },
+    notes: { type: String, default: '' }
+  },
+  { _id: false }
+);
+
+const paymentDetailsSchema = new Schema(
+  {
+    provider: { type: String, enum: ['esewa', 'khalti', 'fonepay', 'bank', ''], default: 'esewa' },
+    esewa: { type: methodDetailsSchema, default: () => ({ qrCodeURL: '', accountName: '', accountNumber: '', notes: '' }) },
+    khalti: { type: methodDetailsSchema, default: () => ({ qrCodeURL: '', accountName: '', accountNumber: '', notes: '' }) },
+    fonepay: { type: methodDetailsSchema, default: () => ({ qrCodeURL: '', accountName: '', accountNumber: '', notes: '' }) },
+    bank: { type: bankDetailsSchema, default: () => ({ bankName: 'Nabil Bank', accountName: '', accountNumber: '', notes: '' }) },
+    qrCodeURL: { type: String, default: '' },
+    bankName: { type: String, default: '' },
+    accountName: { type: String, default: '' },
+    accountNumber: { type: String, default: '' },
+    notes: { type: String, default: '' }
+  },
+  { _id: false }
+);
+
 const userSchema = new Schema(
   {
     role: { type: String, enum: ['creator', 'business', 'admin'], required: true },
@@ -34,13 +70,27 @@ const userSchema = new Schema(
     location: {
       type: { type: String, enum: ['Point'], default: 'Point' },
       coordinates: { type: [Number], default: [0, 0] },
-      address: { type: String, default: '' }
+      address: { type: String, default: '' },
+      country: { type: String, default: '' },
+      state: { type: String, default: '' },
+      city: { type: String, default: '' }
     },
     socials: {
       instagram: { type: String, default: '' },
       tiktok: { type: String, default: '' },
       youtube: { type: String, default: '' },
       facebook: { type: String, default: '' }
+    },
+    paymentDetails: {
+      type: paymentDetailsSchema,
+      default: () => ({
+        qrCodeURL: '',
+        provider: '',
+        bankName: '',
+        accountName: '',
+        accountNumber: '',
+        notes: ''
+      })
     },
     works: { type: [workSampleSchema], default: [] },
     workCompleted: { type: Number, default: 0 },

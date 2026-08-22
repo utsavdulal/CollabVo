@@ -1,90 +1,167 @@
-import { useEffect, useRef, useState } from 'react';
-import { MapPin } from 'lucide-react';
-import { loadMaps, hasMapsKey } from '../../lib/maps.js';
+import { useEffect, useState } from 'react';
+import { MapPin, Globe, Compass, Navigation, Map, ChevronDown, ChevronUp } from 'lucide-react';
+import { COUNTRIES, NEPAL_PROVINCES } from '../../lib/paymentData.jsx';
+import { GoogleLocationPicker } from '../maps/GoogleLocationPicker.jsx';
+import { CityAutocomplete } from './CityAutocomplete.jsx';
 
 const CREATOR_CATEGORIES = ['beauty', 'fashion', 'gaming', 'tech', 'fitness', 'food', 'travel', 'music', 'comedy', 'education'];
 const BUSINESS_CATEGORIES = ['retail', 'food', 'tech', 'fashion', 'beauty', 'entertainment', 'services'];
 
-export function PlaceInput({ value, onChange }) {
-  const inputRef = useRef(null);
-  const [manual, setManual] = useState({ address: value?.address || '', lat: value?.coordinates?.[1] || '', lng: value?.coordinates?.[0] || '' });
+export function PlaceInput({ value, onChange, showMapDefault = true }) {
+  const [country, setCountry] = useState(value?.country || 'Nepal');
+  const [state, setState] = useState(value?.state || 'Bagmati Province');
+  const [city, setCity] = useState(value?.city || '');
+  const [showMap, setShowMap] = useState(showMapDefault);
 
   useEffect(() => {
-    if (!hasMapsKey || !inputRef.current) return;
-    let autocomplete;
-    let cancelled = false;
-    loadMaps()
-      .then((google) => {
-        if (cancelled) return;
-        autocomplete = new google.maps.places.Autocomplete(inputRef.current, { fields: ['geometry', 'formatted_address'] });
-        autocomplete.addListener('place_changed', () => {
-          const place = autocomplete.getPlace();
-          if (place?.geometry) {
-            onChange({
-              address: place.formatted_address || inputRef.current.value,
-              coordinates: [place.geometry.location.lng(), place.geometry.location.lat()]
-            });
-          }
-        });
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-      google?.event?.removeListener?.(autocomplete);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (value) {
+      if (value.country) setCountry(value.country);
+      if (value.state) setState(value.state);
+      if (value.city) setCity(value.city);
+    }
+  }, [value?.country, value?.state, value?.city]);
 
-  if (hasMapsKey) {
-    return (
-      <div className="relative">
-        <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
-          ref={inputRef}
-          defaultValue={value?.address || ''}
-          className="input pl-9"
-          placeholder="Search your location"
-        />
-      </div>
-    );
-  }
+  const updateLocation = (newCountry, newState, newCity) => {
+    const parts = [newCity?.trim(), newState?.trim(), newCountry?.trim()].filter(Boolean);
+    const formattedAddress = parts.join(', ');
+
+    onChange({
+      type: 'Point',
+      coordinates: value?.coordinates || [0, 0],
+      country: newCountry,
+      state: newState,
+      city: newCity,
+      address: formattedAddress
+    });
+  };
+
+  const handleCountryChange = (e) => {
+    const val = e.target.value;
+    setCountry(val);
+    const nextState = val === 'Nepal' ? (NEPAL_PROVINCES.includes(state) ? state : NEPAL_PROVINCES[0]) : '';
+    setState(nextState);
+    updateLocation(val, nextState, city);
+  };
+
+  const handleStateChange = (e) => {
+    const val = e.target.value;
+    setState(val);
+    updateLocation(country, val, city);
+  };
+
+  const handleCityChange = (e) => {
+    const val = e.target.value;
+    setCity(val);
+    updateLocation(country, state, val);
+  };
+
+  const handleMapLocationChange = (mapLocation) => {
+    if (mapLocation.city) setCity(mapLocation.city);
+    if (mapLocation.state) setState(mapLocation.state);
+    if (mapLocation.country) setCountry(mapLocation.country);
+
+    onChange({
+      type: 'Point',
+      coordinates: mapLocation.coordinates || [0, 0],
+      country: mapLocation.country || country,
+      state: mapLocation.state || state,
+      city: mapLocation.city || city,
+      address: mapLocation.address || [city, state, country].filter(Boolean).join(', ')
+    });
+  };
 
   return (
-    <div className="space-y-2">
-      <div className="relative">
-        <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
-          value={manual.address}
-          onChange={(e) => {
-            setManual((m) => ({ ...m, address: e.target.value }));
-            onChange({ address: e.target.value, coordinates: [Number(manual.lng) || 0, Number(manual.lat) || 0] });
-          }}
-          className="input pl-9"
-          placeholder="City or area name"
-        />
+    <div className="space-y-3">
+      {/* Interactive Google Map & Autocomplete */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-[11px] font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+            <Map className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+            Google Map &amp; Exact Pin
+          </label>
+          <button
+            type="button"
+            onClick={() => setShowMap(!showMap)}
+            className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+          >
+            {showMap ? (
+              <>Hide Map <ChevronUp className="h-3 w-3" /></>
+            ) : (
+              <>Show Pin Map <ChevronDown className="h-3 w-3" /></>
+            )}
+          </button>
+        </div>
+
+        {showMap && (
+          <div className="mb-3">
+            <GoogleLocationPicker
+              value={value}
+              onChange={handleMapLocationChange}
+              placeholder="Search store name, street address or landmark..."
+            />
+          </div>
+        )}
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <input
-          type="number"
-          step="any"
-          value={manual.lat}
-          onChange={(e) => {
-            setManual((m) => ({ ...m, lat: e.target.value }));
-            onChange({ address: manual.address, coordinates: [Number(manual.lng) || 0, Number(e.target.value) || 0] });
+
+      {/* Row 1: Country & State/Province */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div>
+          <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
+            Country
+          </label>
+          <select
+            value={country}
+            onChange={handleCountryChange}
+            className="input py-2 text-xs bg-white dark:bg-zinc-800"
+          >
+            {COUNTRIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
+            State / Province
+          </label>
+          {country === 'Nepal' ? (
+            <select
+              value={state}
+              onChange={handleStateChange}
+              className="input py-2 text-xs bg-white dark:bg-zinc-800"
+            >
+              {NEPAL_PROVINCES.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              value={state}
+              onChange={handleStateChange}
+              className="input py-2 text-xs"
+              placeholder="State or Province"
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Row 2: City */}
+      <div>
+        <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
+          City / Town
+        </label>
+        <CityAutocomplete
+          value={city}
+          country={country}
+          onChange={(newCity) => {
+            setCity(newCity);
+            updateLocation(country, state, newCity);
           }}
-          className="input"
-          placeholder="Latitude"
-        />
-        <input
-          type="number"
-          step="any"
-          value={manual.lng}
-          onChange={(e) => {
-            setManual((m) => ({ ...m, lng: e.target.value }));
-            onChange({ address: manual.address, coordinates: [Number(e.target.value) || 0, Number(manual.lat) || 0] });
-          }}
-          className="input"
-          placeholder="Longitude"
+          placeholder={`Search cities in ${country}...`}
         />
       </div>
     </div>

@@ -18,12 +18,14 @@ export function ReviewModal({ open, onClose, targetUser, onReviewed }) {
     setError('');
     setBusy(true);
     try {
+      const targetId = targetUser._id || targetUser.id;
       await api('/reviews', {
         method: 'POST',
         body: {
-          targetUserId: targetUser._id || targetUser.id,
+          revieweeId: targetId,
+          targetUserId: targetId,
           rating,
-          comment: comment.trim() || undefined
+          comment: comment.trim() || ''
         }
       });
       setSubmitted(true);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, X, Wallet, FileText, Star, MapPin, Calendar } from 'lucide-react';
+import { Search, X, Wallet, FileText, Star, MapPin, Calendar, QrCode } from 'lucide-react';
 import { api } from '../lib/api.js';
 
 export default function UserManagement() {
@@ -15,6 +15,7 @@ export default function UserManagement() {
   const [detailTxns, setDetailTxns] = useState([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [confirmSuspend, setConfirmSuspend] = useState(null);
+  const [previewQR, setPreviewQR] = useState(null);
 
   const load = () => {
     setLoading(true);
@@ -171,6 +172,52 @@ export default function UserManagement() {
                   </div>
                 )}
 
+                {detail.paymentDetails && (detail.paymentDetails.qrCodeURL || detail.paymentDetails.accountNumber) && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold text-gray-500">Payout &amp; Payment QR</p>
+                    <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs">
+                      {detail.paymentDetails.qrCodeURL ? (
+                        <img
+                          src={detail.paymentDetails.qrCodeURL}
+                          alt="Payment QR"
+                          onClick={() => setPreviewQR(detail.paymentDetails)}
+                          className="h-14 w-14 cursor-pointer rounded-lg border bg-white object-contain p-0.5 shadow-2xs hover:opacity-90 transition-opacity"
+                          title="Click to zoom"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-200 text-gray-400">
+                          <QrCode className="h-6 w-6" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <span className="inline-block rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase text-indigo-700">
+                          {detail.paymentDetails.provider || 'Digital Wallet'}
+                        </span>
+                        {detail.paymentDetails.provider === 'bank' && detail.paymentDetails.bankName && (
+                          <p className="text-xs font-semibold text-blue-700 mt-0.5 truncate">
+                            🏦 {detail.paymentDetails.bankName}
+                          </p>
+                        )}
+                        {detail.paymentDetails.accountName && (
+                          <p className="font-semibold text-gray-900 mt-0.5 truncate">
+                            {detail.paymentDetails.accountName}
+                          </p>
+                        )}
+                        {detail.paymentDetails.accountNumber && (
+                          <p className="font-mono text-xs text-indigo-600 font-bold truncate">
+                            {detail.paymentDetails.accountNumber}
+                          </p>
+                        )}
+                        {detail.paymentDetails.notes && (
+                          <p className="text-[11px] text-gray-500 truncate">
+                            {detail.paymentDetails.notes}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {detailTxns.length > 0 && (
                   <div>
                     <p className="mb-2 text-xs font-semibold text-gray-500">Recent Transactions</p>
@@ -210,6 +257,29 @@ export default function UserManagement() {
                 {confirmSuspend.suspended ? 'Unsuspend' : 'Suspend'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Zoom Modal */}
+      {previewQR && previewQR.qrCodeURL && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={() => setPreviewQR(null)}>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" />
+          <div className="relative w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl text-center" onClick={(e) => e.stopPropagation()}>
+            <button type="button" onClick={() => setPreviewQR(null)} className="absolute top-4 right-4 rounded-full p-1.5 text-gray-400 hover:bg-gray-100">
+              <X className="h-5 w-5" />
+            </button>
+            <h3 className="font-bold text-gray-900">Payment QR Code</h3>
+            <p className="text-xs text-gray-500 capitalize">{previewQR.provider || 'Digital Wallet'}</p>
+            <div className="mt-4 p-3 bg-white rounded-2xl border border-gray-200 inline-block shadow-inner">
+              <img src={previewQR.qrCodeURL} alt="QR Full" className="h-60 w-60 object-contain mx-auto" />
+            </div>
+            {previewQR.accountName && (
+              <p className="mt-3 text-xs font-bold text-gray-900">{previewQR.accountName}</p>
+            )}
+            {previewQR.accountNumber && (
+              <p className="text-xs font-mono text-indigo-600 font-bold mt-0.5">{previewQR.accountNumber}</p>
+            )}
           </div>
         </div>
       )}

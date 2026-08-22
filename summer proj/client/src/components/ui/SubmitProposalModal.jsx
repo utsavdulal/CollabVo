@@ -75,6 +75,9 @@ export function SubmitProposalModal({ open, onClose, event, targetUser, onSubmit
       if (event?._id) {
         payload.eventId = event._id;
         payload.toUserId = event.createdBy?._id || event.createdBy;
+        if (event.location) {
+          payload.meetupLocation = event.location;
+        }
       } else if (targetUser?._id || targetUser?.id) {
         payload.toUserId = targetUser._id || targetUser.id;
       }
@@ -138,10 +141,17 @@ export function SubmitProposalModal({ open, onClose, event, targetUser, onSubmit
               {brandName}
             </p>
 
-            <div className="mt-2.5 flex items-center gap-2">
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-xs font-extrabold text-emerald-600 dark:text-[#34d399]">
                 <Banknote className="h-3.5 w-3.5" /> Rs. {minBudget.toLocaleString()} – Rs. {maxBudget.toLocaleString()}
               </span>
+              {(event?.deliverables?.videos > 0 || event?.deliverables?.posts > 0 || event?.deliverables?.storyMentions > 0) && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 px-3 py-1 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                  {event.deliverables?.videos > 0 && `🎥 ${event.deliverables.videos}V `}
+                  {event.deliverables?.posts > 0 && `📸 ${event.deliverables.posts}P `}
+                  {event.deliverables?.storyMentions > 0 && `💬 ${event.deliverables.storyMentions}S`}
+                </span>
+              )}
             </div>
           </div>
 

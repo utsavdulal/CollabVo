@@ -77,15 +77,35 @@ export function EventCard({ event, isSaved, onToggleSave }) {
               {event.createdBy?.name || 'Brand Partner'} · {timeAgo()}
             </p>
 
-            {/* Paid Badge */}
-            <div className="mt-2.5">
+            {/* Paid Badge & Slots */}
+            <div className="mt-2.5 flex items-center justify-between gap-2 flex-wrap">
               <span className="inline-block rounded-lg bg-zinc-900 text-white dark:bg-white dark:text-[#121522] px-2.5 py-0.5 text-[11px] font-extrabold shadow-xs">
                 Paid
               </span>
+              {event.creatorsNeeded && event.creatorsNeeded > 1 && (
+                <span className="inline-flex items-center gap-1 rounded-lg bg-indigo-50 border border-indigo-200/60 dark:bg-indigo-950/40 dark:border-indigo-900/60 px-2 py-0.5 text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                  {event.creatorsHired || 0}/{event.creatorsNeeded} Creators
+                </span>
+              )}
             </div>
 
+            {/* Deliverables summary tag if set */}
+            {(event.deliverables?.videos > 0 || event.deliverables?.posts > 0 || event.deliverables?.storyMentions > 0) && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-50 dark:bg-[#151824] rounded-xl p-2 border border-zinc-100 dark:border-[#262a3e]">
+                {event.deliverables?.videos > 0 && (
+                  <span className="inline-flex items-center gap-0.5">🎥 {event.deliverables.videos} {event.deliverables.videos === 1 ? 'Video' : 'Videos'}</span>
+                )}
+                {event.deliverables?.posts > 0 && (
+                  <span className="inline-flex items-center gap-0.5">📸 {event.deliverables.posts} {event.deliverables.posts === 1 ? 'Post' : 'Posts'}</span>
+                )}
+                {event.deliverables?.storyMentions > 0 && (
+                  <span className="inline-flex items-center gap-0.5">💬 {event.deliverables.storyMentions} {event.deliverables.storyMentions === 1 ? 'Story' : 'Stories'}</span>
+                )}
+              </div>
+            )}
+
             {/* Location, Deadline, Budget */}
-            <div className="mt-3.5 space-y-1.5 border-t border-zinc-100 dark:border-[#262a3e]/80 pt-3 text-xs">
+            <div className="mt-3 space-y-1.5 border-t border-zinc-100 dark:border-[#262a3e]/80 pt-2.5 text-xs">
               <p className="flex items-center gap-1.5 text-zinc-500 dark:text-[#8e95af] truncate">
                 <MapPin className="h-3.5 w-3.5 text-zinc-400 dark:text-[#8e95af] shrink-0" />
                 <span className="truncate">{event.location?.address || 'Itahari, Nepal'}</span>

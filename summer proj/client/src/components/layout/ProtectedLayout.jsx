@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore.js';
 import { useThemeStore } from '../../store/themeStore.js';
@@ -14,8 +14,11 @@ export function ProtectedLayout() {
   const { initTheme } = useThemeStore();
   const { fetchUnread, connect, disconnect } = useNotificationStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const [profileOpen, setProfileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const isMessages = location.pathname.startsWith('/messages');
 
   useEffect(() => {
     initTheme();
@@ -39,7 +42,10 @@ export function ProtectedLayout() {
           onProfileClick={() => navigate(`/profile/${userId}`)}
           onMenuClick={() => setMenuOpen(true)}
         />
-        <main className="mx-auto w-full max-w-5xl px-4 pt-4 md:px-6">
+        <main className={isMessages
+          ? 'px-4 pt-4 md:px-6'
+          : 'mx-auto w-full max-w-5xl px-4 pt-4 md:px-6'
+        }>
           <Outlet />
         </main>
       </div>

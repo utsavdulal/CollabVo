@@ -22,6 +22,21 @@ const proposalSchema = new Schema(
     businessConfirmedComplete: { type: Boolean, default: false },
     creatorConfirmedComplete: { type: Boolean, default: false },
     creatorConfirmedAt: { type: Date },
+    workStarted: { type: Boolean, default: false },
+    workStartedAt: { type: Date },
+    submittedAt: { type: Date },
+    deliverableURL: { type: String, default: '' },
+    deliverableNotes: { type: String, default: '' },
+    deliverableMedia: [
+      {
+        url: { type: String, required: true },
+        mediaType: { type: String, enum: ['image', 'video', 'file'], default: 'image' },
+        name: { type: String, default: '' }
+      }
+    ],
+    revisionRequested: { type: Boolean, default: false },
+    revisionNotes: { type: String, default: '' },
+    revisionRequestedAt: { type: Date },
     businessAccepted: { type: Boolean, default: false },
     creatorAccepted: { type: Boolean, default: false }
   },
