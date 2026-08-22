@@ -24,5 +24,21 @@ export function useAdminAuth() {
     setAdmin(null);
   };
 
-  return { token, admin, login, logout, authed: !!token };
+  const checkSession = async () => {
+    if (!localStorage.getItem('collavo-admin-token')) return false;
+    try {
+      const d = await api('/auth/me');
+      setAdmin(d.admin);
+      localStorage.setItem('collavo-admin-info', JSON.stringify(d.admin));
+      return true;
+    } catch {
+      setAdminToken(null);
+      localStorage.removeItem('collavo-admin-info');
+      setToken(null);
+      setAdmin(null);
+      return false;
+    }
+  };
+
+  return { token, admin, login, logout, checkSession, authed: !!token };
 }

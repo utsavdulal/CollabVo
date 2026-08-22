@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { User } from '../../models/User.js';
 import { env } from '../../config/env.js';
-import { signAdminAccessToken, signAdminRefreshToken } from '../../middleware/adminAuth.js';
+import { signAdminAccessToken, signAdminRefreshToken, requireAdminAuth } from '../../middleware/adminAuth.js';
 import { asyncHandler, ApiError } from '../../middleware/error.js';
 import { validate } from '../../middleware/validate.js';
 import { authLimiter } from '../../middleware/rateLimiter.js';
@@ -101,6 +101,10 @@ router.post('/refresh', authLimiter, asyncHandler(async (req, res) => {
     }
   );
   res.json({ accessToken });
+}));
+
+router.get('/me', requireAdminAuth, asyncHandler(async (req, res) => {
+  res.json({ admin: { id: req.user._id, email: req.user.email, name: req.user.name } });
 }));
 
 router.post('/logout', asyncHandler(async (req, res) => {

@@ -125,7 +125,51 @@ async function main() {
   } catch { guardBlocked = true; }
   ok(guardBlocked, 'unverified business blocked from sending proposal');
 
-  console.log('\n== 10. Reporting system ==');
+  console.log('\n== 10. Creator-initiated proposal -> escrow release ==');
+  const evt2 = await api('/api/events', { method: 'POST', token: biz.accessToken, body: { title: 'Creator Apply Campaign', category: 'retail', platform: 'instagram', budget: 3000, location: { coordinates: [77.2, 28.6], address: 'New Delhi' } } });
+  const prop2 = await api('/api/proposals', { method: 'POST', token: creator.accessToken, body: { toUserId: biz.user.id, eventId: evt2.event._id, offerAmount: 500, message: 'applying to your campaign' } });
+  ok(prop2.proposal.status === 'pending' && String(prop2.proposal.fromUserId?._id || prop2.proposal.fromUserId) === String(creator.user.id), 'creator applied to business campaign');
+
+  const accepted2 = await api(`/api/proposals/${prop2.proposal._id}/accept`, { method: 'PATCH', token: biz.accessToken });
+  ok(accepted2.proposal.escrowStatus === 'held', `escrow held on creator-initiated proposal (status=${accepted2.proposal.escrowStatus})`);
+
+  const bizWallet4 = await api('/api/wallet', { token: biz.accessToken });
+  ok(bizWallet4.wallet.availableBalance === 3500 && bizWallet4.wallet.escrowHeld === 500, `business funds locked again: available=${bizWallet4.wallet.availableBalance} escrow=${bizWallet4.wallet.escrowHeld}`);
+
+  await api(`/api/proposals/${prop2.proposal._id}/complete`, { method: 'PATCH', token: creator.accessToken });
+  const released2 = await api(`/api/proposals/${prop2.proposal._id}/complete`, { method: 'PATCH', token: biz.accessToken });
+  ok(released2.proposal.escrowStatus === 'released', `escrow released on creator-initiated proposal (status=${released2.proposal.escrowStatus})`);
+
+  const creatorWallet3 = await api('/api/wallet', { token: creator.accessToken });
+  ok(creatorWallet3.wallet.claimableBalance === 500, `creator received funds from creator-initiated deal: claimable=${creatorWallet3.wallet.claimableBalance}`);
+  const bizWallet5 = await api('/api/wallet', { token: biz.accessToken });
+  ok(bizWallet5.wallet.escrowHeld === 0 && bizWallet5.wallet.claimableBalance === 0, `business did not pay itself: escrow=${bizWallet5.wallet.escrowHeld} claimable=${bizWallet5.wallet.claimableBalance}`);
+
+  console.log('\n== 11. Wallet top-up requests ==');
+  const topUpReq = await api('/api/wallet/topup-request', { method: 'POST', token: biz.accessToken, body: { amount: 700, referenceNote: 'bank-ref-777' } });
+  ok(topUpReq.topUpRequest?.status === 'pending', 'business submitted top-up request');
+
+  let creatorTopUpBlocked = false;
+  try {
+    await api('/api/wallet/topup-request', { method: 'POST', token: creator.accessToken, body: { amount: 100 } });
+  } catch { creatorTopUpBlocked = true; }
+  ok(creatorTopUpBlocked, 'creator blocked from requesting top-up');
+
+  const pendingTopUps = await adminApi('/wallet/topups?status=pending', { token: adminLogin.accessToken });
+  const myTopUp = pendingTopUps.transactions.find(t => String(t.userId?._id || t.userId) === String(biz.user.id));
+  ok(!!myTopUp && myTopUp.amount === 700, 'top-up request visible in admin queue');
+
+  await adminApi(`/wallet/topups/${myTopUp._id}/approve`, { method: 'POST', token: adminLogin.accessToken });
+  const bizWallet6 = await api('/api/wallet', { token: biz.accessToken });
+  ok(bizWallet6.wallet.availableBalance === 4200, `approved top-up credited: available=${bizWallet6.wallet.availableBalance}`);
+
+  const topUpReq2 = await api('/api/wallet/topup-request', { method: 'POST', token: biz.accessToken, body: { amount: 300 } });
+  await adminApi(`/wallet/topups/${topUpReq2.topUpRequest._id}/deny`, { method: 'POST', token: adminLogin.accessToken, body: { reason: 'Payment not received' } });
+  const bizWallet7 = await api('/api/wallet', { token: biz.accessToken });
+  const deniedTxn = bizWallet7.transactions.find(t => t._id === topUpReq2.topUpRequest._id);
+  ok(deniedTxn?.status === 'failed' && bizWallet7.wallet.availableBalance === 4200, 'denied top-up not credited');
+
+  console.log('\n== 12. Reporting system ==');
   const reportRes = await api('/api/reports', {
     method: 'POST',
     token: creator.accessToken,

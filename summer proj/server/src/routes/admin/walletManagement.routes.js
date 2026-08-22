@@ -7,7 +7,7 @@ import { AdminAuditLog } from '../../models/AdminAuditLog.js';
 import { requireAdminAuth } from '../../middleware/adminAuth.js';
 import { validate } from '../../middleware/validate.js';
 import { asyncHandler, ApiError } from '../../middleware/error.js';
-import { getOrCreateWallet, getWallet, topUpWallet, payWithdrawal, denyWithdrawal } from '../../services/escrowService.js';
+import { getOrCreateWallet, getWallet, topUpWallet, requestTopUp, approveTopUp, denyTopUp, payWithdrawal, denyWithdrawal } from '../../services/escrowService.js';
 import { notifyUser } from '../../services/notificationService.js';
 
 const router = Router();
@@ -63,6 +63,48 @@ router.get('/withdrawals', asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 })
     .populate('userId', 'name email');
   res.json({ transactions });
+}));
+
+router.get('/topups', asyncHandler(async (req, res) => {
+  const { status = 'pending' } = req.query;
+  const transactions = await Transaction.find({ type: 'topup_request', status })
+    .sort({ createdAt: -1 })
+    .populate('userId', 'name email role');
+  res.json({ transactions });
+}));
+
+router.post('/topups/:id/approve', asyncHandler(async (req, res) => {
+  const { transaction, wallet } = await approveTopUp({ adminId: req.user._id, topUpId: req.params.id });
+  await writeAudit(req.user, 'wallet_topup_approved', 'Transaction', transaction._id, {
+    amount: transaction.amount,
+    userId: transaction.userId,
+    referenceNote: transaction.referenceNote
+  });
+  await notifyUser(transaction.userId, {
+    type: 'wallet',
+    message: `Your top-up request of ₹${transaction.amount} was approved and credited to your wallet.`,
+    relatedId: transaction._id
+  });
+  res.json({ transaction, wallet });
+}));
+
+router.post('/topups/:id/deny', asyncHandler(async (req, res) => {
+  const { transaction } = await denyTopUp({
+    adminId: req.user._id,
+    topUpId: req.params.id,
+    reason: req.body?.reason
+  });
+  await writeAudit(req.user, 'wallet_topup_denied', 'Transaction', transaction._id, {
+    amount: transaction.amount,
+    userId: transaction.userId,
+    reason: transaction.referenceNote
+  });
+  await notifyUser(transaction.userId, {
+    type: 'wallet',
+    message: `Your top-up request of ₹${transaction.amount} was denied. ${transaction.referenceNote || ''}`.trim(),
+    relatedId: transaction._id
+  });
+  res.json({ transaction });
 }));
 
 router.post('/withdrawals/:id/pay', asyncHandler(async (req, res) => {

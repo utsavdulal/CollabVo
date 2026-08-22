@@ -12,6 +12,11 @@ export default function WalletPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [topUpAmount, setTopUpAmount] = useState('');
+  const [topUpRef, setTopUpRef] = useState('');
+  const [topUpBusy, setTopUpBusy] = useState(false);
+  const [topUpError, setTopUpError] = useState('');
+  const [topUpSuccess, setTopUpSuccess] = useState('');
 
   const load = () => {
     api('/wallet')
@@ -39,6 +44,28 @@ export default function WalletPage() {
       setError(err.message);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const requestTopUp = async (e) => {
+    e.preventDefault();
+    setTopUpError('');
+    setTopUpSuccess('');
+    if (!topUpAmount || Number(topUpAmount) <= 0) return setTopUpError('Please enter a valid amount');
+    setTopUpBusy(true);
+    try {
+      await api('/wallet/topup-request', {
+        method: 'POST',
+        body: { amount: Number(topUpAmount), referenceNote: topUpRef }
+      });
+      setTopUpSuccess('Top-up request submitted. Funds will be credited once the admin confirms your payment.');
+      setTopUpAmount('');
+      setTopUpRef('');
+      load();
+    } catch (err) {
+      setTopUpError(err.message);
+    } finally {
+      setTopUpBusy(false);
     }
   };
 
@@ -147,14 +174,52 @@ export default function WalletPage() {
         </form>
       )}
 
-      {/* Business Top Up Notice */}
+      {/* Business Top Up Request Card */}
       {user?.role === 'business' && (
-        <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 text-xs text-zinc-600">
-          <p className="font-bold text-zinc-900">Need to reload your available budget?</p>
-          <p className="mt-0.5 text-zinc-500">
-            Contact the platform operations admin. Virtual wallet funds are credited upon payment confirmation.
+        <form
+          onSubmit={requestTopUp}
+          className="mt-6 rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-xs space-y-3"
+        >
+          <h2 className="text-sm font-bold text-zinc-900">Add Funds</h2>
+          <p className="text-xs text-zinc-500">
+            Submit a top-up request with your payment reference. The platform admin will verify the
+            payment and credit your available budget.
           </p>
-        </div>
+
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-zinc-400">₹</span>
+              <input
+                type="number"
+                min="1"
+                value={topUpAmount}
+                onChange={(e) => setTopUpAmount(e.target.value)}
+                className="input pl-8 text-sm font-semibold"
+                placeholder="Amount"
+              />
+            </div>
+            <input
+              type="text"
+              value={topUpRef}
+              onChange={(e) => setTopUpRef(e.target.value)}
+              className="input flex-1 text-sm"
+              placeholder="Payment reference (txn ID, optional)"
+            />
+          </div>
+
+          {topUpError && <p className="text-xs text-red-600 font-medium">{topUpError}</p>}
+          {topUpSuccess && <p className="text-xs text-emerald-600 font-medium">{topUpSuccess}</p>}
+
+          <button type="submit" disabled={topUpBusy} className="btn-primary w-full py-2.5 text-xs">
+            {topUpBusy ? 'Submitting request...' : 'Request Top-Up'}
+          </button>
+
+          {transactions.some((t) => t.type === 'topup_request' && t.status === 'pending') && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-700">
+              You have pending top-up request(s) awaiting admin approval.
+            </p>
+          )}
+        </form>
       )}
 
       {/* Ledger Transactions Stream */}
@@ -168,6 +233,7 @@ export default function WalletPage() {
           <div className="space-y-2">
             {transactions.map((t) => {
               const isCredit = t.type === 'topup' || t.type === 'escrow_release';
+              const isDebit = t.type === 'withdrawal' || t.type === 'escrow_lock' || t.type === 'admin_deduct';
               return (
                 <div
                   key={t._id}
@@ -178,14 +244,16 @@ export default function WalletPage() {
                       className={`flex h-8 w-8 items-center justify-center rounded-lg ${
                         t.type === 'topup'
                           ? 'bg-emerald-50 text-emerald-600'
+                          : t.type === 'topup_request'
+                          ? 'bg-blue-50 text-blue-600'
                           : t.type === 'escrow_lock'
                           ? 'bg-amber-50 text-amber-600'
-                          : t.type === 'withdrawal'
+                          : isDebit
                           ? 'bg-red-50 text-red-600'
                           : 'bg-zinc-100 text-zinc-700'
                       }`}
                     >
-                      {t.type === 'withdrawal' || t.type === 'escrow_lock' ? (
+                      {isDebit ? (
                         <ArrowUpRight className="h-4 w-4" />
                       ) : (
                         <ArrowDownLeft className="h-4 w-4" />

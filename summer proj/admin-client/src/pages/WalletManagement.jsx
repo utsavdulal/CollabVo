@@ -12,11 +12,14 @@ export default function WalletManagement() {
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [withdrawals, setWithdrawals] = useState([]);
+  const [topUps, setTopUps] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [confirmPay, setConfirmPay] = useState(null);
   const [confirmDeny, setConfirmDeny] = useState(null);
+  const [confirmApproveTopUp, setConfirmApproveTopUp] = useState(null);
+  const [confirmDenyTopUp, setConfirmDenyTopUp] = useState(null);
 
   const showMsg = (msg, isErr = false) => {
     if (isErr) setError(msg);
@@ -50,8 +53,17 @@ export default function WalletManagement() {
       .finally(() => setLoading(false));
   };
 
+  const loadTopUps = () => {
+    setLoading(true);
+    api('/wallet/topups?status=pending')
+      .then((d) => setTopUps(d.transactions || []))
+      .catch(() => setTopUps([]))
+      .finally(() => setLoading(false));
+  };
+
   useEffect(() => {
     if (tab === 'withdrawals') loadWithdrawals();
+    if (tab === 'topups') loadTopUps();
   }, [tab]);
 
   const topUp = async (e) => {
@@ -106,6 +118,28 @@ export default function WalletManagement() {
     }
   };
 
+  const approveTopUp = async (id) => {
+    setConfirmApproveTopUp(null);
+    try {
+      await api(`/wallet/topups/${id}/approve`, { method: 'POST' });
+      showMsg('Top-up approved and credited');
+      loadTopUps();
+    } catch (err) {
+      showMsg(err.message || 'Approve failed', true);
+    }
+  };
+
+  const denyTopUp = async (id) => {
+    setConfirmDenyTopUp(null);
+    try {
+      await api(`/wallet/topups/${id}/deny`, { method: 'POST', body: { reason: 'Payment could not be verified' } });
+      showMsg('Top-up request denied');
+      loadTopUps();
+    } catch (err) {
+      showMsg(err.message || 'Deny failed', true);
+    }
+  };
+
   return (
     <div>
       <h1 className="text-lg font-bold">Wallet Management</h1>
@@ -117,9 +151,9 @@ export default function WalletManagement() {
       )}
 
       <div className="mt-4 flex gap-1 rounded-xl border border-gray-200 bg-white p-1">
-        {['topup', 'deduct', 'withdrawals'].map((t) => (
+        {['topup', 'deduct', 'topups', 'withdrawals'].map((t) => (
           <button key={t} type="button" onClick={() => { setTab(t); setError(''); setSuccess(''); }} className={`flex-1 rounded-lg py-2 text-sm font-semibold ${tab === t ? 'bg-brand text-white' : 'text-gray-500'}`}>
-            {t === 'topup' ? 'Top Ups' : t === 'deduct' ? 'Deduct Funds' : 'Payout Requests'}
+            {t === 'topup' ? 'Top Ups' : t === 'deduct' ? 'Deduct Funds' : t === 'topups' ? 'Top-up Requests' : 'Payout Requests'}
           </button>
         ))}
       </div>
@@ -200,6 +234,33 @@ export default function WalletManagement() {
         </div>
       )}
 
+      {tab === 'topups' && (
+        <div className="mt-4 space-y-2">
+          {loading ? (
+            <p className="mt-6 text-center text-sm text-gray-400">Loading...</p>
+          ) : topUps.length === 0 ? (
+            <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-400">No pending top-up requests.</div>
+          ) : (
+            topUps.map((t) => (
+              <div key={t._id} className="rounded-xl border border-gray-200 bg-white p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold">{t.userId?.name || 'Business'}</p>
+                    <p className="text-xs text-gray-500">{t.userId?.email} · requested {new Date(t.createdAt).toLocaleDateString()}</p>
+                    {t.referenceNote && <p className="mt-1 text-xs text-gray-500">Ref: {t.referenceNote}</p>}
+                  </div>
+                  <p className="font-bold text-brand">₹{t.amount}</p>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <button type="button" onClick={() => setConfirmApproveTopUp(t)} className="btn-primary flex-1 bg-green-600 text-xs hover:bg-green-700">Approve &amp; credit</button>
+                  <button type="button" onClick={() => setConfirmDenyTopUp(t)} className="btn-secondary flex-1 text-xs text-red-600">Deny</button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
       {tab === 'withdrawals' && (
         <div className="mt-4 space-y-2">
           {loading ? (
@@ -223,6 +284,39 @@ export default function WalletManagement() {
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {/* Confirm Approve Top-up Modal */}
+      {confirmApproveTopUp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setConfirmApproveTopUp(null)} />
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+            <h3 className="font-bold">Confirm Top-up</h3>
+            <p className="mt-2 text-sm text-gray-600">Credit ₹{confirmApproveTopUp.amount} to {confirmApproveTopUp.userId?.name}&apos;s wallet?</p>
+            {confirmApproveTopUp.referenceNote && (
+              <p className="mt-1 text-xs text-gray-400">Ref: {confirmApproveTopUp.referenceNote}</p>
+            )}
+            <div className="mt-4 flex gap-2">
+              <button type="button" onClick={() => setConfirmApproveTopUp(null)} className="btn-secondary flex-1">Cancel</button>
+              <button type="button" onClick={() => approveTopUp(confirmApproveTopUp._id)} className="btn-primary flex-1 bg-green-600 hover:bg-green-700">Approve</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Deny Top-up Modal */}
+      {confirmDenyTopUp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setConfirmDenyTopUp(null)} />
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+            <h3 className="font-bold">Deny Top-up</h3>
+            <p className="mt-2 text-sm text-gray-600">Deny ₹{confirmDenyTopUp.amount} top-up request from {confirmDenyTopUp.userId?.name}?</p>
+            <div className="mt-4 flex gap-2">
+              <button type="button" onClick={() => setConfirmDenyTopUp(null)} className="btn-secondary flex-1">Cancel</button>
+              <button type="button" onClick={() => denyTopUp(confirmDenyTopUp._id)} className="btn-primary flex-1 bg-red-600 hover:bg-red-700">Confirm Deny</button>
+            </div>
+          </div>
         </div>
       )}
 

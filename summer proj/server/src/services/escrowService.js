@@ -106,8 +106,16 @@ export async function releaseEscrow({ proposal, session }) {
     throw new ApiError(400, 'Escrow is not held for this proposal');
   }
   const amount = proposal.offerAmount;
-  const businessWallet = await getOrCreateWallet(proposal.fromUserId, session);
-  const creatorWallet = await getOrCreateWallet(proposal.toUserId, session);
+  const { User } = await import('../models/User.js');
+  const fromUser = await User.findById(proposal.fromUserId).session(session);
+  const toUser = await User.findById(proposal.toUserId).session(session);
+
+  // Business is the one who paid the escrow - must match lockEscrow logic
+  const businessUserId = fromUser?.role === 'business' ? proposal.fromUserId : proposal.toUserId;
+  const creatorUserId = String(businessUserId) === String(proposal.fromUserId) ? proposal.toUserId : proposal.fromUserId;
+
+  const businessWallet = await getOrCreateWallet(businessUserId, session);
+  const creatorWallet = await getOrCreateWallet(creatorUserId, session);
 
   businessWallet.escrowHeld = Math.max(0, businessWallet.escrowHeld - amount);
   await businessWallet.save({ session });
@@ -163,6 +171,67 @@ export async function requestPayout({ userId, amount }) {
         { session }
       );
       return { transaction: txn[0], pendingTotal: pendingTotal + amount };
+    });
+  } finally {
+    session.endSession();
+  }
+  return result;
+}
+
+export async function requestTopUp({ userId, amount, referenceNote }) {
+  if (!amount || amount <= 0) throw new ApiError(400, 'Invalid top-up amount');
+  const txn = await Transaction.create([
+    {
+      type: 'topup_request',
+      userId,
+      amount,
+      status: 'pending',
+      referenceNote: referenceNote || ''
+    }
+  ]);
+  return txn[0];
+}
+
+export async function approveTopUp({ adminId, topUpId }) {
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    result = await session.withTransaction(async () => {
+      const txn = await Transaction.findById(topUpId).session(session);
+      if (!txn) throw new ApiError(404, 'Top-up request not found');
+      if (txn.type !== 'topup_request') throw new ApiError(400, 'Not a top-up request');
+      if (txn.status !== 'pending') throw new ApiError(400, 'Top-up request already processed');
+
+      const wallet = await getOrCreateWallet(txn.userId, session);
+      wallet.availableBalance += txn.amount;
+      await wallet.save({ session });
+
+      txn.status = 'completed';
+      txn.adminId = adminId;
+      await txn.save({ session });
+      return { transaction: txn, wallet };
+    });
+  } finally {
+    session.endSession();
+  }
+  return result;
+}
+
+export async function denyTopUp({ adminId, topUpId, reason }) {
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    result = await session.withTransaction(async () => {
+      const txn = await Transaction.findById(topUpId).session(session);
+      if (!txn) throw new ApiError(404, 'Top-up request not found');
+      if (txn.type !== 'topup_request') throw new ApiError(400, 'Not a top-up request');
+      if (txn.status !== 'pending') throw new ApiError(400, 'Top-up request already processed');
+
+      txn.status = 'failed';
+      txn.adminId = adminId;
+      txn.referenceNote = reason || 'Denied by admin';
+      await txn.save({ session });
+      return { transaction: txn };
     });
   } finally {
     session.endSession();

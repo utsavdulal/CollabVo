@@ -4,10 +4,28 @@ import { api } from '../lib/api.js';
 
 export default function Analytics() {
   const [a, setA] = useState(null);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    api('/panel/analytics').then(setA).catch(() => {});
-  }, []);
+  const load = () => {
+    setError('');
+    api('/panel/analytics')
+      .then(setA)
+      .catch((err) => setError(err.message || 'Failed to load analytics'));
+  };
+
+  useEffect(load, []);
+
+  if (error) {
+    return (
+      <div>
+        <h1 className="text-lg font-bold">Analytics</h1>
+        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+          {error}
+          <button type="button" onClick={load} className="ml-3 font-semibold underline">Retry</button>
+        </div>
+      </div>
+    );
+  }
 
   if (!a) return <p className="mt-8 text-center text-sm text-gray-400">Loading...</p>;
 

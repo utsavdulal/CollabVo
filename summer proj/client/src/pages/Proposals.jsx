@@ -79,14 +79,16 @@ export default function Proposals() {
     setSuccess('');
     try {
       const response = await api(`/proposals/${id}/${action}`, { method: 'PATCH' });
-      
-      const actionMessages = {
-        accept: 'Proposal accepted! Escrow is now secured.',
-        reject: 'Proposal declined successfully.',
-        complete: 'Work marked complete and escrow released!'
-      };
-      
-      setSuccess(actionMessages[action] || `Action completed successfully`);
+
+      let message = 'Action completed successfully';
+      if (action === 'accept') message = 'Proposal accepted! Escrow is now secured.';
+      if (action === 'reject') message = 'Proposal declined successfully.';
+      if (action === 'complete') {
+        message = response.proposal?.escrowStatus === 'released'
+          ? 'Work marked complete and escrow released!'
+          : 'You marked the work complete. Funds release once the other party also confirms.';
+      }
+      setSuccess(message);
       setTimeout(() => setSuccess(''), 3000);
       
       // Update the proposal in state immediately
@@ -395,9 +397,13 @@ export default function Proposals() {
                   </p>
                 )}
 
-                {p.businessConfirmedComplete && !p.creatorConfirmedComplete && (
+                {p.status === 'accepted' && p.escrowStatus === 'held' &&
+                  ((p.businessConfirmedComplete && !p.creatorConfirmedComplete) ||
+                   (p.creatorConfirmedComplete && !p.businessConfirmedComplete)) && (
                   <p className="mt-2.5 text-[11px] text-amber-700 font-medium bg-amber-50 p-2 rounded-lg">
-                    You marked work complete. Awaiting creator confirmation to finalize release.
+                    {p.creatorConfirmedComplete
+                      ? 'Creator marked the work delivered. Confirm to release funds to their wallet.'
+                      : 'You marked work complete. Awaiting creator confirmation to finalize release.'}
                   </p>
                 )}
 

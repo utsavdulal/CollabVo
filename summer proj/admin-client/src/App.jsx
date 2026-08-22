@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { ShieldCheck, FileSearch, Users, Wallet, Lock, BarChart3, LogOut, Flag, Shield } from 'lucide-react';
 import { useAdminAuth } from './lib/useAdminAuth.js';
@@ -21,7 +21,7 @@ const NAV = [
   { to: '/analytics', label: 'Analytics', icon: BarChart3 }
 ];
 
-function Shell() {
+function Shell({ onLogout }) {
   const { logout } = useAdminAuth();
   const location = useLocation();
   const current = NAV.find((n) => location.pathname.startsWith(n.to));
@@ -57,7 +57,7 @@ function Shell() {
         <div className="border-t border-gray-100 p-3">
           <button
             type="button"
-            onClick={logout}
+            onClick={async () => { await logout(); onLogout?.(); }}
             className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
           >
             <LogOut className="h-4 w-4" /> Log out
@@ -84,12 +84,29 @@ function Shell() {
 }
 
 export default function App() {
-  const { authed } = useAdminAuth();
+  const { authed, checkSession } = useAdminAuth();
   const [freshAuthed, setFreshAuthed] = useState(authed);
+  const [checking, setChecking] = useState(authed);
+
+  useEffect(() => {
+    if (!authed) return;
+    checkSession().then((valid) => {
+      setFreshAuthed(valid);
+      setChecking(false);
+    });
+  }, [authed, checkSession]);
+
+  if (checking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <p className="text-sm text-gray-400">Restoring session...</p>
+      </div>
+    );
+  }
 
   if (!freshAuthed) {
     return <AdminLogin onLogin={() => setFreshAuthed(true)} />;
   }
 
-  return <Shell />;
+  return <Shell onLogout={() => setFreshAuthed(false)} />;
 }
