@@ -56,7 +56,38 @@ router.get('/', asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 })
     .limit(100);
   const unread = await Notification.countDocuments({ userId: req.user._id, read: false });
-  res.json({ notifications, unread });
+
+  const followIds = [
+    ...new Set(
+      notifications
+        .filter((n) => n.type === 'follow' && n.relatedId)
+        .map((n) => n.relatedId.toString())
+    )
+  ];
+
+  let senderMap = {};
+  if (followIds.length > 0) {
+    const [me, senders] = await Promise.all([
+      User.findById(req.user._id).select('following'),
+      User.find({ _id: { $in: followIds } }).select('name photoURL')
+    ]);
+    for (const s of senders) {
+      senderMap[s._id.toString()] = {
+        name: s.name,
+        photoURL: s.photoURL || '',
+        canFollowBack: !me.following.some((f) => String(f) === String(s._id))
+      };
+    }
+  }
+
+  const enriched = notifications.map((n) => {
+    if (n.type === 'follow' && n.relatedId && senderMap[n.relatedId.toString()]) {
+      return { ...n.toObject(), ...senderMap[n.relatedId.toString()] };
+    }
+    return n.toObject ? n.toObject() : n;
+  });
+
+  res.json({ notifications: enriched, unread });
 }));
 
 router.post('/read', asyncHandler(async (req, res) => {

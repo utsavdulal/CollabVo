@@ -103,12 +103,15 @@ const userSchema = new Schema(
       default: 'not_applicable'
     },
     suspended: { type: Boolean, default: false },
-    refreshTokens: { type: [refreshTokenSchema], default: [] }
+    refreshTokens: { type: [refreshTokenSchema], default: [] },
+    followers: { type: [{ type: Schema.Types.ObjectId, ref: 'User' }], default: [] },
+    following: { type: [{ type: Schema.Types.ObjectId, ref: 'User' }], default: [] }
   },
   { timestamps: true }
 );
 
 userSchema.index({ location: '2dsphere' });
 userSchema.index({ role: 1 });
+userSchema.index({ followers: 1 });
 
 export const User = mongoose.model('User', userSchema);

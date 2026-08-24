@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Bell, Wallet, ShieldCheck, FileText, CheckCircle, AlertCircle, ChevronRight } from 'lucide-react';
+import { Bell, Wallet, ShieldCheck, FileText, CheckCircle, AlertCircle, ChevronRight, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useNotificationStore } from '../store/notificationStore.js';
 import { Spinner } from '../components/ui/Spinner.jsx';
+import { Avatar } from '../components/ui/Avatar.jsx';
 
 const TYPE_CONFIG = {
   proposal: {
@@ -42,6 +43,12 @@ const TYPE_CONFIG = {
     label: 'Report',
     getHref: () => '/support',
   },
+  follow: {
+    icon: UserPlus,
+    color: 'bg-rose-100 text-rose-700',
+    label: 'Follow',
+    getHref: (n) => (n.relatedId ? `/profile/${n.relatedId}` : '/activity'),
+  },
 };
 
 function getConfig(type) {
@@ -68,6 +75,7 @@ function timeAgo(dateStr) {
 export default function Activity() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [followBusy, setFollowBusy] = useState(null);
   const { markAllRead } = useNotificationStore();
   const navigate = useNavigate();
 
@@ -83,6 +91,18 @@ export default function Activity() {
     const config = getConfig(n.type);
     const href = config.getHref(n);
     navigate(href);
+  };
+
+  const handleFollowBack = async (e, n) => {
+    e.stopPropagation();
+    setFollowBusy(n._id);
+    try {
+      await api(`/users/${n.relatedId}/follow`, { method: 'POST' });
+      setNotifications((prev) =>
+        prev.map((x) => (x._id === n._id ? { ...x, canFollowBack: false } : x))
+      );
+    } catch {}
+    setFollowBusy(null);
   };
 
   return (
@@ -109,11 +129,19 @@ export default function Activity() {
           {notifications.map((n) => {
             const config = getConfig(n.type);
             const Icon = config.icon;
+            const showFollowBack = n.type === 'follow' && n.relatedId && n.canFollowBack;
             return (
-              <button
+              <div
                 key={n._id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => handleClick(n)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleClick(n);
+                  }
+                }}
                 className={`flex w-full items-start gap-3.5 rounded-xl border bg-white p-3.5 shadow-xs transition-all text-left hover:shadow-md hover:-translate-y-px active:scale-[0.99] cursor-pointer ${
                   n.read
                     ? 'border-zinc-200/70 opacity-90'
@@ -121,9 +149,13 @@ export default function Activity() {
                 }`}
               >
                 {/* Icon */}
-                <div className={`flex h-9 w-9 items-center justify-center rounded-xl shrink-0 ${config.color}`}>
-                  <Icon className="h-4 w-4" />
-                </div>
+                {n.type === 'follow' ? (
+                  <Avatar user={{ name: n.name, photoURL: n.photoURL }} size="sm" />
+                ) : (
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-xl shrink-0 ${config.color}`}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                )}
 
                 {/* Content */}
                 <div className="min-w-0 flex-1">
@@ -137,11 +169,21 @@ export default function Activity() {
                   </div>
                   <p className="text-xs font-semibold text-zinc-900 leading-snug">{n.message}</p>
                   <p className="mt-1 text-[10px] text-zinc-400">{timeAgo(n.createdAt)}</p>
+                  {showFollowBack && (
+                    <button
+                      type="button"
+                      onClick={(e) => handleFollowBack(e, n)}
+                      disabled={followBusy === n._id}
+                      className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1 text-[10px] font-bold text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors"
+                    >
+                      <UserPlus className="h-3 w-3" /> Follow back
+                    </button>
+                  )}
                 </div>
 
                 {/* Chevron */}
                 <ChevronRight className="h-4 w-4 text-zinc-300 shrink-0 mt-0.5" />
-              </button>
+              </div>
             );
           })}
         </div>

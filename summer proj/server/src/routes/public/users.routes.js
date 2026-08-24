@@ -9,6 +9,7 @@ import { asyncHandler, ApiError } from '../../middleware/error.js';
 import { upload, validateUploadedFiles } from '../../middleware/upload.js';
 import { uploadLimiter } from '../../middleware/rateLimiter.js';
 import { storage } from '../../config/azureBlob.js';
+import { notifyUser } from '../../services/notificationService.js';
 
 const router = Router();
 
@@ -106,11 +107,59 @@ router.get('/search', requireAuth, asyncHandler(async (req, res) => {
 
 router.get('/:id', requireAuth, asyncHandler(async (req, res) => {
   const user = await User.findById(req.params.id)
-    .select('name role photoURL coverURL bio category location socials works paymentDetails verificationStatus rating workCompleted workInProgress createdAt');
+    .select('name role photoURL coverURL bio category location socials works paymentDetails verificationStatus rating workCompleted workInProgress followers following createdAt');
   if (!user) throw new ApiError(404, 'User not found');
   const reviews = await Review.find({ revieweeId: user._id }).populate('reviewerId', 'name photoURL').limit(10);
   const events = await Event.find({ createdBy: user._id }).sort({ createdAt: -1 }).limit(20);
-  res.json({ user, reviews, events });
+
+  const isSelf = String(user._id) === String(req.user._id);
+  const plain = user.toObject();
+  delete plain.followers;
+  delete plain.following;
+  delete plain.refreshTokens;
+  if (!isSelf) delete plain.paymentDetails;
+
+  res.json({
+    user: {
+      ...plain,
+      followerCount: user.followers?.length || 0,
+      followingCount: user.following?.length || 0
+    },
+    isFollowing: user.followers?.some((f) => String(f) === String(req.user._id)) || false,
+    reviews,
+    events
+  });
+}));
+
+router.post('/:id/follow', requireAuth, asyncHandler(async (req, res) => {
+  const targetId = req.params.id;
+  if (String(targetId) === String(req.user._id)) {
+    throw new ApiError(400, 'You cannot follow yourself');
+  }
+  const target = await User.findById(targetId).select('name');
+  if (!target) throw new ApiError(404, 'User not found');
+
+  const me = await User.findById(req.user._id).select('name following');
+  const wasFollowing = me.following.some((f) => String(f) === String(targetId));
+
+  if (wasFollowing) {
+    await User.updateOne({ _id: me._id }, { $pull: { following: targetId } });
+    await User.updateOne({ _id: targetId }, { $pull: { followers: me._id } });
+  } else {
+    await User.updateOne({ _id: me._id }, { $addToSet: { following: targetId } });
+    await User.updateOne({ _id: targetId }, { $addToSet: { followers: me._id } });
+    await notifyUser(targetId, {
+      type: 'follow',
+      message: `${me.name} started following you.`,
+      relatedId: me._id
+    });
+  }
+
+  const updated = await User.findById(targetId).select('followers');
+  res.json({
+    isFollowing: !wasFollowing,
+    followerCount: updated.followers.length
+  });
 }));
 
 router.post('/setup-profile', requireAuth, validate(profileSchema), asyncHandler(async (req, res) => {

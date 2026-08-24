@@ -4,7 +4,8 @@ import {
   ChevronLeft, Camera, MapPin, Edit3, BarChart2, Share2,
   Briefcase, Tag, Plus, MessageCircle, Send, ShieldAlert,
   ShieldCheck, Star, ExternalLink, X, Store, Globe,
-  CheckCircle2, Clock, PlusCircle, QrCode, CreditCard, Building, Building2
+  CheckCircle2, Clock, PlusCircle, QrCode, CreditCard, Building, Building2,
+  UserPlus, UserCheck
 } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { useAuthStore } from '../store/authStore.js';
@@ -46,6 +47,7 @@ export default function ProfileView() {
   const [zoomQR, setZoomQR] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [coverBusy, setCoverBusy] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
 
   const load = () => {
     const targetId = id || currentUser?.id || currentUser?._id;
@@ -56,6 +58,20 @@ export default function ProfileView() {
   };
 
   useEffect(load, [id, currentUser]);
+
+  const toggleFollow = async () => {
+    if (followBusy) return;
+    setFollowBusy(true);
+    try {
+      const d = await api(`/users/${p?._id || id}/follow`, { method: 'POST' });
+      setData((prev) => ({
+        ...prev,
+        isFollowing: d.isFollowing,
+        user: { ...prev.user, followerCount: d.followerCount }
+      }));
+    } catch {}
+    setFollowBusy(false);
+  };
 
   const onPhotoUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -228,6 +244,22 @@ export default function ProfileView() {
               <>
                 <button
                   type="button"
+                  onClick={toggleFollow}
+                  disabled={followBusy}
+                  className={`flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-bold rounded-2xl border transition-colors shadow-xs ${
+                    data.isFollowing
+                      ? 'border-zinc-300 bg-white text-zinc-700 dark:border-[#262a3e] dark:bg-[#161926] dark:text-zinc-300'
+                      : 'border-transparent bg-emerald-600 text-white hover:bg-emerald-700'
+                  }`}
+                >
+                  {data.isFollowing ? (
+                    <><UserCheck className="h-4 w-4" /> Following</>
+                  ) : (
+                    <><UserPlus className="h-4 w-4" /> Follow</>
+                  )}
+                </button>
+                <button
+                  type="button"
                   onClick={async () => {
                     await api('/messages', {
                       method: 'POST',
@@ -278,6 +310,10 @@ export default function ProfileView() {
               </p>
             </div>
           </div>
+
+          <p className="mt-3 text-[11px] font-semibold text-zinc-500 dark:text-[#8e95af]">
+            {p.followerCount ?? 0} Followers · {p.followingCount ?? 0} Following
+          </p>
         </div>
 
         {/* 2b. Section: Physical Location & On-Site Works Map */}
@@ -763,6 +799,22 @@ export default function ProfileView() {
             <>
               <button
                 type="button"
+                onClick={toggleFollow}
+                disabled={followBusy}
+                className={`flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-bold rounded-2xl border transition-colors ${
+                  data.isFollowing
+                    ? 'border-zinc-300 bg-white text-zinc-700 dark:border-[#262a3e] dark:bg-[#161926] dark:text-zinc-300'
+                    : 'border-transparent bg-emerald-600 text-white hover:bg-emerald-700'
+                }`}
+              >
+                {data.isFollowing ? (
+                  <><UserCheck className="h-4 w-4" /> Following</>
+                ) : (
+                  <><UserPlus className="h-4 w-4" /> Follow</>
+                )}
+              </button>
+              <button
+                type="button"
                 onClick={async () => {
                   await api('/messages', {
                     method: 'POST',
@@ -791,22 +843,26 @@ export default function ProfileView() {
         <div className="mt-6 grid grid-cols-3 divide-x divide-zinc-200 dark:divide-[#262a3e] border-t border-zinc-200 dark:border-[#262a3e] pt-4 text-center">
           <div>
             <p className="text-lg font-extrabold text-zinc-900 dark:text-white">
-              {p.workCompleted ?? 1}
+              {p.workCompleted ?? 0}
             </p>
             <p className="text-[11px] font-semibold text-zinc-500 dark:text-[#8e95af] mt-0.5">
               Completed
             </p>
           </div>
           <div>
-            <p className="text-lg font-extrabold text-zinc-900 dark:text-white">0</p>
+            <p className="text-lg font-extrabold text-zinc-900 dark:text-white">
+              {p.followerCount ?? 0}
+            </p>
             <p className="text-[11px] font-semibold text-zinc-500 dark:text-[#8e95af] mt-0.5">
-              Favorite Business
+              Followers
             </p>
           </div>
           <div>
-            <p className="text-lg font-extrabold text-zinc-900 dark:text-white">0</p>
+            <p className="text-lg font-extrabold text-zinc-900 dark:text-white">
+              {p.followingCount ?? 0}
+            </p>
             <p className="text-[11px] font-semibold text-zinc-500 dark:text-[#8e95af] mt-0.5">
-              Saved by Business
+              Following
             </p>
           </div>
         </div>
