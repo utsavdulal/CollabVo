@@ -65,11 +65,11 @@ export default function ProfileSetup() {
   const categories = getCategories(user?.role);
 
   return (
-    <div className="flex min-h-screen flex-col bg-white text-zinc-900">
+    <div className="flex min-h-screen flex-col bg-white dark:bg-[#0c0e17] text-zinc-900 dark:text-white">
       <main className="mx-auto w-full max-w-md flex-1 px-6 py-12">
         <div className="text-center">
-          <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900">Complete your profile</h1>
-          <p className="mt-1 text-xs text-zinc-500">
+          <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-white">Complete your profile</h1>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-[#8e95af]">
             Tell brands and creators about yourself to get started.
           </p>
         </div>
@@ -78,13 +78,13 @@ export default function ProfileSetup() {
           <div className="flex justify-center mb-6">
             <div className="relative">
               {preview ? (
-                <img src={preview} alt="profile" className="h-24 w-24 rounded-full object-cover border-2 border-zinc-200" />
+                <img src={preview} alt="profile" className="h-24 w-24 rounded-full object-cover border-2 border-zinc-200 dark:border-[#262a3e]" />
               ) : (
-                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">
+                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-zinc-100 dark:bg-[#202438] text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-[#262a3e]">
                   <User className="h-10 w-10" />
                 </div>
               )}
-              <label className="absolute bottom-0 right-0 cursor-pointer rounded-full bg-zinc-900 p-2 text-white shadow-md hover:bg-zinc-800 transition-colors">
+              <label className="absolute bottom-0 right-0 cursor-pointer rounded-full bg-zinc-900 dark:bg-[#161926] p-2 text-white shadow-md hover:bg-zinc-800 dark:hover:bg-[#202438] transition-colors">
                 <Camera className="h-3.5 w-3.5" />
                 <input type="file" accept="image/*" className="hidden" onChange={onPhoto} />
               </label>
@@ -92,7 +92,7 @@ export default function ProfileSetup() {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Display Name / Brand Name</label>
+            <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">Display Name / Brand Name</label>
             <input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -103,7 +103,7 @@ export default function ProfileSetup() {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Bio</label>
+            <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">Bio</label>
             <textarea
               value={form.bio}
               onChange={(e) => setForm({ ...form, bio: e.target.value })}
@@ -114,7 +114,7 @@ export default function ProfileSetup() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-700">
+            <label className="mb-1.5 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
               {user?.role === 'business' ? 'Industry / Business Type' : 'Content Category'}
             </label>
             <div className="flex flex-wrap gap-1.5">
@@ -132,7 +132,7 @@ export default function ProfileSetup() {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Home City / Location</label>
+            <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">Home City / Location</label>
             <PlaceInput value={form.location} onChange={(location) => setForm({ ...form, location })} />
           </div>
 

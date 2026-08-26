@@ -5,6 +5,14 @@ import { Transaction } from '../../models/Transaction.js';
 import { Wallet } from '../../models/Wallet.js';
 import { AdminAuditLog } from '../../models/AdminAuditLog.js';
 import { User } from '../../models/User.js';
+import { Event } from '../../models/Event.js';
+import { Notification } from '../../models/Notification.js';
+import { Review } from '../../models/Review.js';
+import { Report } from '../../models/Report.js';
+import { BusinessVerification } from '../../models/BusinessVerification.js';
+import { Message } from '../../models/Message.js';
+import { Conversation } from '../../models/Conversation.js';
+import { env } from '../../config/env.js';
 import { requireAdminAuth } from '../../middleware/adminAuth.js';
 import { asyncHandler, ApiError } from '../../middleware/error.js';
 import { getWallet, releaseEscrow } from '../../services/escrowService.js';
@@ -137,6 +145,31 @@ router.post('/escrows/:id/refund', asyncHandler(async (req, res) => {
   await notifyUser(businessUserId, { type: 'wallet', message: `₹${proposal.offerAmount} escrow was refunded to your wallet by admin.`, relatedId: proposal._id });
 
   res.json({ proposal });
+}));
+
+// Dev-only: remove throwaway e2e test accounts and all their data
+router.post('/dev/purge-test-users', requireAdminAuth, asyncHandler(async (req, res) => {
+  if (env.NODE_ENV === 'production') throw new ApiError(404, 'Not found');
+
+  const users = await User.find({ email: { $regex: '^(biz|creator|badbiz)\\d+@t\\.com$' } }).select('_id');
+  const ids = users.map((u) => u._id);
+  if (ids.length === 0) return res.json({ purged: 0 });
+
+  await Promise.all([
+    User.deleteMany({ _id: { $in: ids }, role: { $ne: 'admin' } }),
+    Wallet.deleteMany({ userId: { $in: ids } }),
+    Transaction.deleteMany({ userId: { $in: ids } }),
+    Event.deleteMany({ createdBy: { $in: ids } }),
+    Proposal.deleteMany({ $or: [{ fromUserId: { $in: ids } }, { toUserId: { $in: ids } }] }),
+    Notification.deleteMany({ userId: { $in: ids } }),
+    Review.deleteMany({ $or: [{ reviewerId: { $in: ids } }, { revieweeId: { $in: ids } }] }),
+    Report.deleteMany({ $or: [{ reporterId: { $in: ids } }, { reportedUserId: { $in: ids } }] }),
+    BusinessVerification.deleteMany({ userId: { $in: ids } }),
+    Message.deleteMany({ senderId: { $in: ids } }),
+    Conversation.deleteMany({ participantIds: { $in: ids } })
+  ]);
+
+  res.json({ purged: ids.length });
 }));
 
 export default router;

@@ -15,7 +15,9 @@ const transactionSchema = new Schema(
     amount: { type: Number, required: true },
     status: { type: String, enum: ['pending', 'completed', 'failed'], default: 'completed' },
     adminId: { type: Schema.Types.ObjectId, ref: 'User' },
-    referenceNote: { type: String, default: '' }
+    referenceNote: { type: String, default: '' },
+    paymentProofURL: { type: String, default: '' },
+    paymentProvider: { type: String, enum: ['esewa', 'khalti', 'fonepay', 'bank'], default: 'esewa' }
   },
   { timestamps: true }
 );

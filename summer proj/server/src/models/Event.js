@@ -8,6 +8,7 @@ const eventSchema = new Schema(
     image: { type: String, default: '' },
     category: { type: String, default: '' },
     platform: { type: String, default: '' },
+    workMode: { type: String, enum: ['onsite', 'remote'], default: 'onsite' },
     location: {
       type: { type: String, enum: ['Point'], default: 'Point' },
       coordinates: { type: [Number], default: [0, 0] },

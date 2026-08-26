@@ -22,6 +22,21 @@ export default function WalletManagement() {
   const [confirmDenyTopUp, setConfirmDenyTopUp] = useState(null);
   const [copiedId, setCopiedId] = useState('');
   const [previewQR, setPreviewQR] = useState(null);
+  const [topUpPayment, setTopUpPayment] = useState({});
+  const [topUpQrFile, setTopUpQrFile] = useState(null);
+  const [savingTopUpPayment, setSavingTopUpPayment] = useState(false);
+
+  const defaultPaymentDetails = {
+    provider: 'esewa',
+    esewa: { qrCodeURL: '', accountName: '', accountNumber: '', notes: '' },
+    khalti: { qrCodeURL: '', accountName: '', accountNumber: '', notes: '' },
+    fonepay: { qrCodeURL: '', accountName: '', accountNumber: '', notes: '' },
+    bank: { bankName: '', accountName: '', accountNumber: '', notes: '' }
+  };
+
+  useEffect(() => {
+    api('/wallet/topup-payment').then((d) => setTopUpPayment(d.topUpPayment || {})).catch(() => {});
+  }, []);
 
   const copyToClipboard = (text, id) => {
     if (!text) return;
@@ -34,6 +49,25 @@ export default function WalletManagement() {
     if (isErr) setError(msg);
     else setSuccess(msg);
     setTimeout(() => { setError(''); setSuccess(''); }, 3000);
+  };
+
+  const saveTopUpPayment = async (e) => {
+    e.preventDefault();
+    setSavingTopUpPayment(true);
+    try {
+      const formData = new FormData();
+      formData.append('provider', topUpPayment.topUpProvider || 'esewa');
+      formData.append('paymentDetails', JSON.stringify({ ...defaultPaymentDetails, ...(topUpPayment.topUpPaymentDetails || {}), provider: topUpPayment.topUpProvider || 'esewa' }));
+      if (topUpQrFile) formData.append('qrCode', topUpQrFile);
+      const d = await api('/wallet/topup-payment', { method: 'POST', formData });
+      setTopUpPayment(d.topUpPayment || {});
+      setTopUpQrFile(null);
+      showMsg('Business top-up payment details saved');
+    } catch (err) {
+      showMsg(err.message || 'Could not save payment details', true);
+    } finally {
+      setSavingTopUpPayment(false);
+    }
   };
 
   const search = async () => {
@@ -150,6 +184,20 @@ export default function WalletManagement() {
     }
   };
 
+  const activeTopUpProvider = topUpPayment.topUpProvider || 'esewa';
+  const paymentDetails = { ...defaultPaymentDetails, ...(topUpPayment.topUpPaymentDetails || {}) };
+  const currentPaymentMethod = paymentDetails[activeTopUpProvider] || {};
+  const updateCurrentPaymentMethod = (field, value) => {
+    setTopUpPayment({
+      ...topUpPayment,
+      topUpPaymentDetails: {
+        ...paymentDetails,
+        provider: activeTopUpProvider,
+        [activeTopUpProvider]: { ...currentPaymentMethod, [field]: value }
+      }
+    });
+  };
+
   return (
     <div>
       <h1 className="text-lg font-bold">Wallet Management</h1>
@@ -159,6 +207,37 @@ export default function WalletManagement() {
           {error || success}
         </div>
       )}
+
+      <form onSubmit={saveTopUpPayment} className="mt-4 max-w-2xl rounded-2xl border border-gray-200 bg-white p-5 shadow-xs">
+        <div className="flex items-center gap-2.5 border-b border-gray-100 pb-4">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-brand"><QrCode className="h-4 w-4" /></span>
+          <div><h2 className="text-sm font-bold text-gray-900">Payout &amp; Payment Options</h2><p className="text-[11px] text-gray-500">Each payment method keeps its own QR code and account details.</p></div>
+        </div>
+        <div className="mt-4">
+          <div className="mb-2 flex items-center justify-between"><label className="text-xs font-semibold text-gray-700">Select Payment Method to Edit / Activate</label><span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-600">Active: {activeTopUpProvider}</span></div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              ['esewa', 'eSewa', 'e', 'bg-[#60BB46]'], ['khalti', 'Khalti', 'K', 'bg-[#5C2D91]'], ['fonepay', 'Fonepay', 'f', 'bg-[#ED1C24]'], ['bank', 'Bank Transfer', '▣', 'bg-blue-700']
+            ].map(([id, label, mark, color]) => (
+              <button key={id} type="button" onClick={() => {
+                setTopUpQrFile(null);
+                setTopUpPayment({ ...topUpPayment, topUpProvider: id, topUpPaymentDetails: { ...paymentDetails, provider: id } });
+              }} className={`relative flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-2xl border p-2 text-xs font-bold transition-all ${activeTopUpProvider === id ? `${color} border-transparent text-white ring-2 ring-indigo-300 ring-offset-1` : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'}`}>
+                {paymentDetails[id]?.qrCodeURL && activeTopUpProvider !== id && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-emerald-500" />}
+                <span className={`flex h-6 w-6 items-center justify-center rounded-md text-xs ${activeTopUpProvider === id ? 'bg-white/20' : `${color} text-white`}`}>{mark}</span>{label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50/50 p-4">
+          <div className="flex items-center justify-between border-b border-gray-200 pb-3"><h3 className="text-xs font-bold text-gray-900 capitalize">{activeTopUpProvider} Dedicated Details {activeTopUpProvider !== 'bank' && '& QR'}</h3><span className="text-[10px] text-gray-500">Separate from other methods</span></div>
+          {activeTopUpProvider === 'bank' && <div className="mt-3"><label className="mb-1 block text-xs font-semibold text-gray-700">Bank Name</label><input value={currentPaymentMethod.bankName || ''} onChange={(e) => updateCurrentPaymentMethod('bankName', e.target.value)} className="input" placeholder="Bank name" /></div>}
+          <div className="mt-3 grid gap-3 sm:grid-cols-2"><div><label className="mb-1 block text-xs font-semibold text-gray-700">Account Holder Full Name</label><input value={currentPaymentMethod.accountName || ''} onChange={(e) => updateCurrentPaymentMethod('accountName', e.target.value)} className="input" placeholder="e.g. Ram Sharma" /></div><div><label className="mb-1 block text-xs font-semibold text-gray-700">{activeTopUpProvider === 'bank' ? 'Bank Account Number' : 'Mobile / ID Number'}</label><input value={currentPaymentMethod.accountNumber || ''} onChange={(e) => updateCurrentPaymentMethod('accountNumber', e.target.value)} className="input" placeholder="98XXXXXXXX" /></div></div>
+          <div className="mt-3"><label className="mb-1 block text-xs font-semibold text-gray-700">Transfer Instructions / Notes (Optional)</label><input value={currentPaymentMethod.notes || ''} onChange={(e) => updateCurrentPaymentMethod('notes', e.target.value)} className="input" placeholder="Remarks or transfer reference note" /></div>
+          {activeTopUpProvider !== 'bank' && <div className="mt-4 border-t border-gray-200 pt-3"><label className="mb-2 block text-xs font-semibold text-gray-700">{activeTopUpProvider} QR Code Image</label><div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3">{topUpQrFile ? <img src={URL.createObjectURL(topUpQrFile)} alt="New QR" className="h-[72px] w-[72px] rounded-lg object-contain" /> : currentPaymentMethod.qrCodeURL ? <img src={currentPaymentMethod.qrCodeURL} alt="Saved QR" className="h-[72px] w-[72px] rounded-lg object-contain" /> : <QrCode className="h-10 w-10 text-gray-400" />}<div><p className="text-xs font-bold text-gray-900">{currentPaymentMethod.qrCodeURL ? `${activeTopUpProvider} QR attached` : `Upload ${activeTopUpProvider} QR`}</p><p className="mt-0.5 text-[11px] text-gray-500">Businesses can scan this in their wallet.</p><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setTopUpQrFile(e.target.files?.[0] || null)} className="mt-2 text-[11px]" /></div></div></div>}
+          <button type="submit" disabled={savingTopUpPayment} className="btn-primary mt-4 w-full text-xs">{savingTopUpPayment ? 'Saving...' : `Save ${activeTopUpProvider} details`}</button>
+        </div>
+      </form>
 
       <div className="mt-4 flex gap-1 rounded-xl border border-gray-200 bg-white p-1">
         {['topup', 'deduct', 'topups', 'withdrawals'].map((t) => (
@@ -287,6 +366,11 @@ export default function WalletManagement() {
                     <p className="font-semibold">{t.userId?.name || 'Business'}</p>
                     <p className="text-xs text-gray-500">{t.userId?.email} · requested {new Date(t.createdAt).toLocaleDateString()}</p>
                     {t.referenceNote && <p className="mt-1 text-xs text-gray-500">Ref: {t.referenceNote}</p>}
+                    {t.paymentProofURL && (
+                      <a href={t.paymentProofURL} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline">
+                        <ExternalLink className="h-3 w-3" /> View payment screenshot
+                      </a>
+                    )}
                   </div>
                   <p className="font-bold text-brand">₹{t.amount}</p>
                 </div>

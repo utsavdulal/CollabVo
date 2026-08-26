@@ -122,7 +122,7 @@ export function CampaignsMapView({ items = [], userLocation, height = 'h-[500px]
         <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-20">
           <AlertCircle className="h-8 w-8 text-amber-500 mb-2" />
           <p className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Google Maps Unavailable</p>
-          <p className="text-xs text-zinc-500 mt-1">{error}</p>
+          <p className="text-xs text-zinc-500 dark:text-[#8e95af] mt-1">{error}</p>
         </div>
       )}
 
@@ -153,7 +153,7 @@ export function CampaignsMapView({ items = [], userLocation, height = 'h-[500px]
                 <button
                   type="button"
                   onClick={() => setSelectedItem(null)}
-                  className="text-zinc-400 hover:text-zinc-600 text-xs font-bold px-1"
+                  className="text-zinc-400 hover:text-zinc-600 dark:hover:text-white text-xs font-bold px-1"
                 >
                   ✕
                 </button>

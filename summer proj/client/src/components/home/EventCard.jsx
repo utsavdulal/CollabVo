@@ -108,7 +108,7 @@ export function EventCard({ event, isSaved, onToggleSave }) {
             <div className="mt-3 space-y-1.5 border-t border-zinc-100 dark:border-[#262a3e]/80 pt-2.5 text-xs">
               <p className="flex items-center gap-1.5 text-zinc-500 dark:text-[#8e95af] truncate">
                 <MapPin className="h-3.5 w-3.5 text-zinc-400 dark:text-[#8e95af] shrink-0" />
-                <span className="truncate">{event.location?.address || 'Itahari, Nepal'}</span>
+                <span className="truncate">{event.workMode === 'remote' ? 'Remote collaboration' : event.location?.address || 'On-site location shared after approval'}</span>
               </p>
 
               <p className="flex items-center gap-1.5 font-semibold text-amber-600 dark:text-[#f97316]">

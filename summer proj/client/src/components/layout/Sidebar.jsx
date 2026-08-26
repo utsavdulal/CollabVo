@@ -36,11 +36,11 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-zinc-200/80 bg-white lg:flex">
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-zinc-200/80 dark:border-[#262a3e] bg-white dark:bg-[#1a1d2d] lg:flex">
       {/* Brand Header */}
-      <div className="flex h-16 items-center gap-2.5 border-b border-zinc-100 px-6">
+      <div className="flex h-16 items-center gap-2.5 border-b border-zinc-100 dark:border-[#262a3e] px-6">
         <img src="/logo.png" alt="Collavo" className="h-8 w-8 object-contain" />
-        <span className="text-base font-extrabold tracking-tight text-zinc-900">Collavo</span>
+        <span className="text-base font-extrabold tracking-tight text-zinc-900 dark:text-white">Collavo</span>
       </div>
 
       {/* Main Navigation */}
@@ -55,7 +55,7 @@ export function Sidebar() {
               `flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold transition-all ${
                 isActive
                   ? 'bg-zinc-900 text-white shadow-xs'
-                  : 'text-zinc-600 hover:bg-zinc-100/70 hover:text-zinc-900'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100/70 dark:hover:bg-[#212538]/70 hover:text-zinc-900 dark:hover:text-white'
               }`
             }
           >
@@ -79,8 +79,8 @@ export function Sidebar() {
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-medium transition-all ${
                 isActive
-                  ? 'bg-zinc-100 text-zinc-900 font-semibold'
-                  : 'text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900'
+                  ? 'bg-zinc-100 dark:bg-[#202438] text-zinc-900 dark:text-white font-semibold'
+                  : 'text-zinc-500 dark:text-[#8e95af] hover:bg-zinc-50 dark:hover:bg-[#161926] hover:text-zinc-900 dark:hover:text-white'
               }`
             }
           >
@@ -91,26 +91,41 @@ export function Sidebar() {
       </nav>
 
       {/* User Footer Profile */}
-      <div className="border-t border-zinc-100 p-3.5">
+      <div className="border-t border-zinc-100 dark:border-[#262a3e] p-3.5">
         {user && (
-          <div className="flex items-center justify-between rounded-xl bg-zinc-50 p-2.5">
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate(`/profile/${user.id || user._id}`)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate(`/profile/${user.id || user._id}`);
+              }
+            }}
+            className="flex cursor-pointer items-center justify-between rounded-xl bg-zinc-50 dark:bg-[#121522] p-2.5 transition-colors hover:bg-zinc-100 dark:hover:bg-[#212538] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            title="Open profile"
+          >
             <div className="flex items-center gap-2.5 min-w-0">
               <Avatar user={user} size="sm" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1">
-                  <p className="truncate text-xs font-bold text-zinc-900">{user.name || 'Account'}</p>
+                  <p className="truncate text-xs font-bold text-zinc-900 dark:text-white">{user.name || 'Account'}</p>
                   {user.verificationStatus === 'verified' && (
                     <ShieldCheck className="h-3 w-3 text-blue-600 shrink-0" />
                   )}
                 </div>
-                <p className="truncate text-[10px] text-zinc-500 capitalize">{user.role}</p>
+                <p className="truncate text-[10px] text-zinc-500 dark:text-[#8e95af] capitalize">{user.role}</p>
               </div>
             </div>
             <button
               type="button"
-              onClick={onLogout}
+              onClick={(e) => {
+                e.stopPropagation();
+                onLogout();
+              }}
               disabled={busy}
-              className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-200/70 hover:text-zinc-700 transition-colors"
+              className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-200/70 dark:hover:bg-[#232542]/70 hover:text-zinc-700 dark:hover:text-white transition-colors"
               title="Log out"
             >
               <LogOut className="h-3.5 w-3.5" />

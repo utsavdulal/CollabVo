@@ -23,15 +23,15 @@ export default function Legal() {
   return (
     <div className="pb-12 max-w-2xl">
       <div className="mb-6">
-        <h1 className="text-xl font-bold tracking-tight text-zinc-900">Legal, Terms & Privacy</h1>
-        <p className="text-xs text-zinc-500 mt-0.5">Platform policies and terms governing campaigns and virtual escrow.</p>
+        <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-white">Legal, Terms & Privacy</h1>
+        <p className="text-xs text-zinc-500 dark:text-[#8e95af] mt-0.5">Platform policies and terms governing campaigns and virtual escrow.</p>
       </div>
 
       <div className="space-y-3">
         {sections.map((s) => (
-          <div key={s.title} className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-xs">
-            <h2 className="text-sm font-bold text-zinc-900">{s.title}</h2>
-            <p className="mt-2 text-xs text-zinc-600 leading-relaxed">{s.body}</p>
+          <div key={s.title} className="rounded-2xl border border-zinc-200/80 dark:border-[#262a3e] bg-white dark:bg-[#1a1d2d] p-5 shadow-xs">
+            <h2 className="text-sm font-bold text-zinc-900 dark:text-white">{s.title}</h2>
+            <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">{s.body}</p>
           </div>
         ))}
       </div>

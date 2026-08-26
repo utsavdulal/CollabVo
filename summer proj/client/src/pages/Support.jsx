@@ -37,13 +37,13 @@ export default function Support() {
   return (
     <div className="pb-12 max-w-2xl">
       <div className="mb-6">
-        <h1 className="text-xl font-bold tracking-tight text-zinc-900">Support & Help Center</h1>
-        <p className="text-xs text-zinc-500 mt-0.5">Find answers to common questions or reach out directly to the team.</p>
+        <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-white">Support & Help Center</h1>
+        <p className="text-xs text-zinc-500 dark:text-[#8e95af] mt-0.5">Find answers to common questions or reach out directly to the team.</p>
       </div>
 
-      <div className="mb-6 rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-xs">
-        <div className="flex items-center gap-2 text-sm font-bold text-zinc-900">
-          <Headphones className="h-4 w-4 text-zinc-700" />
+      <div className="mb-6 rounded-2xl border border-zinc-200/80 dark:border-[#262a3e] bg-white dark:bg-[#1a1d2d] p-5 shadow-xs">
+        <div className="flex items-center gap-2 text-sm font-bold text-zinc-900 dark:text-white">
+          <Headphones className="h-4 w-4 text-zinc-700 dark:text-zinc-300" />
           <span>Contact Platform Support</span>
         </div>
         {sent ? (
@@ -66,15 +66,15 @@ export default function Support() {
         )}
       </div>
 
-      <h2 className="mb-3 text-sm font-bold text-zinc-900">Frequently Asked Questions</h2>
+      <h2 className="mb-3 text-sm font-bold text-zinc-900 dark:text-white">Frequently Asked Questions</h2>
       <div className="space-y-2">
         {faqs.map((f) => (
-          <details key={f.q} className="group rounded-xl border border-zinc-200/80 bg-white p-4 shadow-xs">
-            <summary className="cursor-pointer text-xs font-bold text-zinc-900 list-none flex items-center justify-between">
+          <details key={f.q} className="group rounded-xl border border-zinc-200/80 dark:border-[#262a3e] bg-white dark:bg-[#1a1d2d] p-4 shadow-xs">
+            <summary className="cursor-pointer text-xs font-bold text-zinc-900 dark:text-white list-none flex items-center justify-between">
               <span>{f.q}</span>
-              <span className="text-zinc-400 group-open:rotate-180 transition-transform">▼</span>
+              <span className="text-zinc-400 dark:text-[#8e95af] group-open:rotate-180 transition-transform">▼</span>
             </summary>
-            <p className="mt-2 text-xs text-zinc-600 leading-relaxed">{f.a}</p>
+            <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">{f.a}</p>
           </details>
         ))}
       </div>
@@ -83,7 +83,7 @@ export default function Support() {
         <button
           type="button"
           onClick={() => navigate('/legal')}
-          className="text-xs font-semibold text-zinc-500 hover:text-zinc-900 hover:underline"
+          className="text-xs font-semibold text-zinc-500 dark:text-[#8e95af] hover:text-zinc-900 dark:hover:text-white hover:underline"
         >
           View Terms of Service & Privacy Policy &rarr;
         </button>

@@ -14,14 +14,14 @@ export function Avatar({ user, size = 'md', onClick }) {
   return (
     <div className={`relative shrink-0 ${onClick ? 'cursor-pointer' : ''}`} onClick={onClick}>
       {src ? (
-        <img src={src} alt="" className={`${cls} rounded-full object-cover border border-zinc-200`} />
+        <img src={src} alt="" className={`${cls} rounded-full object-cover border border-zinc-200 dark:border-[#262a3e]`} />
       ) : (
-        <div className={`${cls} rounded-full bg-zinc-100 text-zinc-700 border border-zinc-200 flex items-center justify-center font-bold`}>
+        <div className={`${cls} rounded-full bg-zinc-100 dark:bg-[#202438] text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-[#262a3e] flex items-center justify-center font-bold`}>
           {initials}
         </div>
       )}
       {user?.verificationStatus === 'verified' && (
-        <ShieldCheck className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 text-blue-600 bg-white rounded-full" />
+        <ShieldCheck className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 text-blue-600 bg-white dark:bg-[#161926] rounded-full" />
       )}
     </div>
   );

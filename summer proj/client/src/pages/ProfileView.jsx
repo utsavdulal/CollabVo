@@ -11,6 +11,7 @@ import { api } from '../lib/api.js';
 import { useAuthStore } from '../store/authStore.js';
 import { Avatar } from '../components/ui/Avatar.jsx';
 import { Spinner } from '../components/ui/Spinner.jsx';
+import { PlaceInput } from '../components/ui/PlaceInput.jsx';
 import { PostEventModal } from '../components/ui/PostEventModal.jsx';
 import { ReportModal } from '../components/ui/ReportModal.jsx';
 import { ReviewModal } from '../components/ui/ReviewModal.jsx';
@@ -99,11 +100,10 @@ export default function ProfileView() {
     const fd = new FormData();
     fd.append('photo', file);
     try {
-      const res = await api('/users/photo', { method: 'POST', formData: fd });
-      const photoURL = res.photoURL || res.user?.photoURL;
-      const { user: updated } = await api('/users/me', { method: 'PATCH', body: { coverURL: photoURL } });
-      setData((d) => ({ ...d, user: { ...d.user, coverURL: photoURL } }));
-      setUser(updated);
+      const res = await api('/users/photo?type=cover', { method: 'POST', formData: fd });
+      const coverURL = res.coverURL || res.user?.coverURL;
+      setData((d) => ({ ...d, user: { ...d.user, coverURL } }));
+      if (res.user) setUser(res.user);
     } catch (err) {
       alert(err.message || 'Failed to upload cover');
     } finally {
@@ -118,6 +118,7 @@ export default function ProfileView() {
   const isBusiness = p.role === 'business';
   const isSelf = String(p._id) === String(currentUser?.id || currentUser?._id);
   const businessEvents = data.events || [];
+  const canShowBusinessLocation = isSelf || p.showLocation !== false;
 
   const handle = `@${(p.name || 'user').toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
   const hasSocials =
@@ -209,7 +210,7 @@ export default function ProfileView() {
             ) : null}
           </div>
 
-          {formatLocation(p.location) && (
+          {canShowBusinessLocation && formatLocation(p.location) && (
             <p className="mt-2 flex items-center justify-center gap-1 text-xs font-medium text-indigo-600 dark:text-[#818cf8]">
               <MapPin className="h-3.5 w-3.5" />
               <span>{formatLocation(p.location)}</span>
@@ -317,7 +318,7 @@ export default function ProfileView() {
         </div>
 
         {/* 2b. Section: Physical Location & On-Site Works Map */}
-        {(p.location?.coordinates?.[0] || p.location?.coordinates?.[1] || p.location?.address) && (
+        {canShowBusinessLocation && (p.location?.coordinates?.[0] || p.location?.coordinates?.[1] || p.location?.address) && (
           <div className="mt-5 px-3">
             <GoogleMapViewer
               coordinates={p.location?.coordinates || [0, 0]}
@@ -461,6 +462,7 @@ export default function ProfileView() {
                 </div>
               </div>
 
+              {canShowBusinessLocation && (
               <div className="flex items-center justify-between py-2 border-b border-zinc-100 dark:border-[#262a3e]">
                 <span className="text-zinc-500 dark:text-[#8e95af]">Store Location</span>
                 <div className="flex items-center gap-2 text-right">
@@ -478,6 +480,7 @@ export default function ProfileView() {
                   )}
                 </div>
               </div>
+              )}
 
               {p.socials?.website && (
                 <div className="flex items-center justify-between py-2 border-b border-zinc-100 dark:border-[#262a3e]">
@@ -577,7 +580,7 @@ export default function ProfileView() {
                     href={p.socials.tiktok.startsWith('http') ? p.socials.tiktok : `https://tiktok.com/@${p.socials.tiktok.replace('@', '')}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-2 rounded-2xl border border-zinc-200 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#161926] p-3 text-zinc-800 dark:text-zinc-200 hover:border-zinc-400"
+                    className="flex items-center gap-2 rounded-2xl border border-zinc-200 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#161926] p-3 text-zinc-800 dark:text-zinc-200 hover:border-zinc-400 dark:hover:border-[#3a4060]"
                   >
                     <span className="text-sm">🎵</span>
                     <span className="truncate">{p.socials.tiktok}</span>
@@ -859,10 +862,10 @@ export default function ProfileView() {
           </div>
           <div>
             <p className="text-lg font-extrabold text-zinc-900 dark:text-white">
-              {p.followingCount ?? 0}
+              {p.rating ? Number(p.rating).toFixed(1) : 'New'}
             </p>
             <p className="text-[11px] font-semibold text-zinc-500 dark:text-[#8e95af] mt-0.5">
-              Following
+              Rating
             </p>
           </div>
         </div>
@@ -1224,7 +1227,7 @@ export default function ProfileView() {
               <X className="h-5 w-5" />
             </button>
             <h3 className="text-base font-bold text-zinc-900 dark:text-white">Payment QR Code</h3>
-            <p className="text-xs text-zinc-500 capitalize mt-0.5">{p.paymentDetails.provider || 'Digital Wallet'}</p>
+            <p className="text-xs text-zinc-500 capitalize mt-0.5 dark:text-[#8e95af]">{p.paymentDetails.provider || 'Digital Wallet'}</p>
             <div className="mt-4 p-3 bg-white rounded-2xl border border-zinc-200 inline-block shadow-inner">
               <img src={p.paymentDetails.qrCodeURL} alt="QR Code Full" className="h-64 w-64 object-contain mx-auto" />
             </div>
@@ -1258,6 +1261,7 @@ function EditBusinessModal({ user, onClose, onSaved }) {
     bio: user.bio || '',
     category: user.category || 'retail',
     location: user.location || { coordinates: [0, 0], address: '', country: 'Nepal', state: '', city: '' },
+    showLocation: user.showLocation !== false,
     socials: user.socials || { instagram: '', facebook: '', tiktok: '', youtube: '', website: '' }
   });
   const [busy, setBusy] = useState(false);
@@ -1281,8 +1285,8 @@ function EditBusinessModal({ user, onClose, onSaved }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="my-8 w-full max-w-lg rounded-3xl border border-zinc-200 dark:border-[#262a3e] bg-white dark:bg-[#161926] p-6 shadow-2xl text-xs">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl border border-zinc-200 dark:border-[#262a3e] bg-white dark:bg-[#161926] p-6 shadow-2xl text-xs">
         <div className="flex items-center justify-between mb-4 pb-2 border-b border-zinc-100 dark:border-[#262a3e]">
           <div className="flex items-center gap-2">
             <Store className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
@@ -1337,8 +1341,25 @@ function EditBusinessModal({ user, onClose, onSaved }) {
 
           <div>
             <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Store Location (Country, State, City)</label>
-            <PlaceInput value={form.location} onChange={(location) => setForm({ ...form, location })} />
+            <PlaceInput
+              value={form.location}
+              onChange={(location) => setForm({ ...form, location })}
+              showMapDefault={false}
+            />
           </div>
+
+          <label className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-xs dark:border-[#262a3e] dark:bg-[#121522]">
+            <span>
+              <span className="block font-semibold text-zinc-700 dark:text-zinc-200">Show shop location publicly</span>
+              <span className="text-[11px] text-zinc-500 dark:text-[#8e95af]">Display the address and map on your business profile.</span>
+            </span>
+            <input
+              type="checkbox"
+              checked={form.showLocation}
+              onChange={(e) => setForm({ ...form, showLocation: e.target.checked })}
+              className="h-4 w-4 shrink-0 accent-indigo-600"
+            />
+          </label>
 
           <div className="grid gap-2.5 sm:grid-cols-2">
             <div>
@@ -1811,7 +1832,7 @@ function PaymentQRModal({ initialPaymentDetails, onClose, onSaved }) {
                 <span className="font-bold text-zinc-900 dark:text-white">
                   {getProviderConfig(activeProvider).label} Dedicated Info &amp; QR
                 </span>
-                <span className="text-[10px] text-zinc-500">
+                <span className="text-[10px] text-zinc-500 dark:text-[#8e95af]">
                   Unique to {getProviderConfig(activeProvider).label}
                 </span>
               </div>

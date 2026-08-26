@@ -79,6 +79,7 @@ const updateSchema = z.object({
     website: z.string().max(200).optional()
   }).optional(),
   works: z.array(workSampleSchema).optional(),
+  showLocation: z.boolean().optional(),
   paymentDetails: paymentDetailsSchema.optional()
 });
 
@@ -100,14 +101,20 @@ router.get('/search', requireAuth, asyncHandler(async (req, res) => {
   }
 
   const users = await User.find(query)
-    .select('name role photoURL bio category location verificationStatus rating workCompleted works socials')
+    .select('name role photoURL bio category location showLocation verificationStatus rating workCompleted works socials')
     .limit(50);
-  res.json({ users });
+  res.json({
+    users: users.map((user) => {
+      const plain = user.toObject();
+      if (plain.role === 'business' && plain.showLocation === false) delete plain.location;
+      return plain;
+    })
+  });
 }));
 
 router.get('/:id', requireAuth, asyncHandler(async (req, res) => {
   const user = await User.findById(req.params.id)
-    .select('name role photoURL coverURL bio category location socials works paymentDetails verificationStatus rating workCompleted workInProgress followers following createdAt');
+    .select('name role photoURL coverURL bio category location showLocation socials works paymentDetails verificationStatus rating workCompleted workInProgress followers following createdAt');
   if (!user) throw new ApiError(404, 'User not found');
   const reviews = await Review.find({ revieweeId: user._id }).populate('reviewerId', 'name photoURL').limit(10);
   const events = await Event.find({ createdBy: user._id }).sort({ createdAt: -1 }).limit(20);
@@ -118,6 +125,7 @@ router.get('/:id', requireAuth, asyncHandler(async (req, res) => {
   delete plain.following;
   delete plain.refreshTokens;
   if (!isSelf) delete plain.paymentDetails;
+  if (!isSelf && user.role === 'business' && user.showLocation === false) delete plain.location;
 
   res.json({
     user: {
@@ -177,7 +185,7 @@ router.post('/setup-profile', requireAuth, validate(profileSchema), asyncHandler
 router.patch('/me', requireAuth, validate(updateSchema), asyncHandler(async (req, res) => {
   const user = req.user;
   const data = req.body;
-  for (const key of ['name', 'bio', 'category', 'photoURL', 'coverURL', 'location', 'socials', 'works']) {
+  for (const key of ['name', 'bio', 'category', 'photoURL', 'coverURL', 'location', 'showLocation', 'socials', 'works']) {
     if (data[key] !== undefined) user[key] = data[key];
   }
   if (data.paymentDetails !== undefined) {
@@ -228,11 +236,14 @@ router.post('/photo', requireAuth, uploadLimiter, upload.single('photo'), asyncH
   if (!req.file) throw new ApiError(400, 'No photo uploaded');
   validateUploadedFiles([req.file], { imagesOnly: true });
   const ext = req.file.mimetype.split('/')[1];
-  const blobPath = `profiles/${req.user._id}-${Date.now()}.${ext}`;
+  const isCover = req.query.type === 'cover';
+  const blobPath = `${isCover ? 'covers' : 'profiles'}/${req.user._id}-${Date.now()}.${ext}`;
   await storage.upload({ blobPath, data: req.file.buffer, contentType: req.file.mimetype });
-  req.user.photoURL = `/files/${blobPath}`;
+  const imageURL = `/files/${blobPath}`;
+  if (isCover) req.user.coverURL = imageURL;
+  else req.user.photoURL = imageURL;
   await req.user.save();
-  res.json({ user: req.user, photoURL: req.user.photoURL });
+  res.json({ user: req.user, photoURL: req.user.photoURL, coverURL: req.user.coverURL });
 }));
 
 router.post('/payment-qr', requireAuth, uploadLimiter, upload.single('qrCode'), asyncHandler(async (req, res) => {

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, MapPin, Calendar, Banknote, Send, UserRound,
-  ShieldAlert, ExternalLink, ShieldCheck, CheckCircle2, ChevronLeft
+  ShieldAlert, ExternalLink, ShieldCheck, CheckCircle2, ChevronLeft, Pencil, Trash2
 } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { Avatar } from '../components/ui/Avatar.jsx';
@@ -10,6 +10,7 @@ import { Spinner } from '../components/ui/Spinner.jsx';
 import { useAuthStore } from '../store/authStore.js';
 import { ReportModal } from '../components/ui/ReportModal.jsx';
 import { SubmitProposalModal } from '../components/ui/SubmitProposalModal.jsx';
+import { PostEventModal } from '../components/ui/PostEventModal.jsx';
 import { GoogleMapViewer } from '../components/maps/GoogleMapViewer.jsx';
 
 export default function EventDetail() {
@@ -21,6 +22,28 @@ export default function EventDetail() {
   const [error, setError] = useState('');
   const [reportOpen, setReportOpen] = useState(false);
   const [proposalOpen, setProposalOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const handleDelete = async () => {
+    if (deleteBusy) return;
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      setTimeout(() => setConfirmDelete(false), 4000);
+      return;
+    }
+    setDeleteBusy(true);
+    try {
+      await api(`/events/${id}`, { method: 'DELETE' });
+      navigate('/home');
+    } catch (err) {
+      setDeleteError(err.message || 'Failed to delete campaign');
+      setConfirmDelete(false);
+      setDeleteBusy(false);
+    }
+  };
 
   const load = () => {
     api(`/events/${id}`)
@@ -62,6 +85,32 @@ export default function EventDetail() {
           </button>
           <h1 className="text-lg font-black text-zinc-900 dark:text-white">Campaign Details</h1>
         </div>
+        <div className="flex items-center gap-2">
+          {isOwner && !isFilled && (
+            <>
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                className="flex items-center gap-1.5 rounded-full bg-indigo-50 dark:bg-[#232542] px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-[#2e3357] transition-colors"
+              >
+                <Pencil className="h-3.5 w-3.5" /> Edit
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleteBusy}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-colors disabled:opacity-60 ${
+                  confirmDelete
+                    ? 'bg-red-600 text-white animate-pulse'
+                    : 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 hover:bg-red-100'
+                }`}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {deleteBusy ? 'Deleting...' : confirmDelete ? 'Tap to confirm' : 'Delete'}
+              </button>
+            </>
+          )}
+        </div>
         {!isOwner && owner && (
           <button
             type="button"
@@ -72,6 +121,12 @@ export default function EventDetail() {
           </button>
         )}
       </header>
+
+      {deleteError && (
+        <p className="rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 px-3.5 py-2.5 text-xs font-semibold text-red-600 dark:text-red-400">
+          {deleteError}
+        </p>
+      )}
 
       {/* Main Campaign Card */}
       <div className="overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm dark:border-[#262a3e] dark:bg-[#1a1d2d]">
@@ -135,7 +190,9 @@ export default function EventDetail() {
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3 border-t border-zinc-100 dark:border-[#262a3e] pt-4 text-xs">
-            {event.location?.address && (
+            {event.workMode === 'remote' ? (
+              <div className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300"><span className="font-bold text-indigo-600">Remote collaboration</span></div>
+            ) : event.location?.address && (
               <div className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
                 <MapPin className="h-4 w-4 text-[#6366f1] shrink-0" />
                 <span className="truncate">{event.location.address}</span>
@@ -191,7 +248,7 @@ export default function EventDetail() {
       )}
 
       {/* Shoot / Event Location Google Map */}
-      {(event.location?.coordinates?.[0] || event.location?.coordinates?.[1] || event.location?.address) && (
+      {event.workMode !== 'remote' && (event.location?.coordinates?.[0] || event.location?.coordinates?.[1] || event.location?.address) && (
         <GoogleMapViewer
           coordinates={event.location?.coordinates || [0, 0]}
           address={event.location?.address}
@@ -251,6 +308,15 @@ export default function EventDetail() {
         event={event}
         onSubmitted={load}
       />
+
+      {editOpen && (
+        <PostEventModal
+          open
+          onClose={() => setEditOpen(false)}
+          event={event}
+          onCreated={() => load()}
+        />
+      )}
 
       {owner && (
         <ReportModal

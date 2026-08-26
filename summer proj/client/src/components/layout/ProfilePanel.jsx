@@ -32,12 +32,12 @@ export function ProfilePanel({ open, onClose }) {
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" onClick={onClose} />
-      <div className="absolute left-0 top-0 h-full w-80 max-w-[85vw] overflow-y-auto bg-white shadow-2xl">
-        <div className="sticky top-0 flex justify-end bg-white/95 p-3.5 backdrop-blur border-b border-zinc-100">
+      <div className="absolute left-0 top-0 h-full w-80 max-w-[85vw] overflow-y-auto bg-white dark:bg-[#1a1d2d] shadow-2xl">
+        <div className="sticky top-0 flex justify-end bg-white/95 dark:bg-[#1a1d2d]/95 p-3.5 backdrop-blur border-b border-zinc-100 dark:border-[#262a3e]">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+            className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-[#212538] hover:text-zinc-700 dark:hover:text-white"
             aria-label="Close"
           >
             <X className="h-4 w-4" />
@@ -48,8 +48,8 @@ export function ProfilePanel({ open, onClose }) {
           <div className="flex items-center gap-3">
             <Avatar user={user} size="lg" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-zinc-900">{user.name || 'Set up profile'}</p>
-              <p className="truncate text-xs text-zinc-500 capitalize">
+              <p className="truncate text-sm font-bold text-zinc-900 dark:text-white">{user.name || 'Set up profile'}</p>
+              <p className="truncate text-xs text-zinc-500 dark:text-[#8e95af] capitalize">
                 {user.role} {user.category && `• ${user.category}`}
               </p>
               {user.verificationStatus === 'verified' && (
@@ -60,7 +60,7 @@ export function ProfilePanel({ open, onClose }) {
             </div>
           </div>
 
-          {user.bio && <p className="mt-3.5 text-xs text-zinc-600 leading-relaxed">{user.bio}</p>}
+          {user.bio && <p className="mt-3.5 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">{user.bio}</p>}
           {user.location?.address && (
             <p className="mt-2 flex items-center gap-1 text-[11px] text-zinc-400">
               <MapPin className="h-3 w-3 shrink-0" />
@@ -70,9 +70,9 @@ export function ProfilePanel({ open, onClose }) {
 
           <div className="mt-4 grid grid-cols-3 gap-2">
             {stats.map((s) => (
-              <div key={s.label} className="rounded-xl border border-zinc-100 bg-zinc-50 p-2.5 text-center">
-                <p className="text-base font-extrabold text-zinc-900">{s.value}</p>
-                <p className="text-[10px] text-zinc-500 font-medium">{s.label}</p>
+              <div key={s.label} className="rounded-xl border border-zinc-100 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#121522] p-2.5 text-center">
+                <p className="text-base font-extrabold text-zinc-900 dark:text-white">{s.value}</p>
+                <p className="text-[10px] text-zinc-500 dark:text-[#8e95af] font-medium">{s.label}</p>
               </div>
             ))}
           </div>
@@ -88,7 +88,7 @@ export function ProfilePanel({ open, onClose }) {
             View Public Profile
           </button>
 
-          <div className="mt-6 border-t border-zinc-100 pt-4">
+          <div className="mt-6 border-t border-zinc-100 dark:border-[#262a3e] pt-4">
             <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
               Recent Reviews
             </p>
@@ -101,15 +101,15 @@ export function ProfilePanel({ open, onClose }) {
             ) : (
               <div className="space-y-2.5">
                 {reviews.map((r) => (
-                  <div key={r._id} className="rounded-xl border border-zinc-100 bg-zinc-50 p-3 text-xs">
+                  <div key={r._id} className="rounded-xl border border-zinc-100 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#121522] p-3 text-xs">
                     <div className="flex items-center gap-2">
                       <Avatar user={r.reviewerId} size="sm" />
-                      <p className="font-bold text-zinc-800">{r.reviewerId?.name || 'User'}</p>
-                      <span className="ml-auto flex items-center gap-0.5 text-xs font-semibold text-zinc-800">
+                      <p className="font-bold text-zinc-800 dark:text-zinc-100">{r.reviewerId?.name || 'User'}</p>
+                      <span className="ml-auto flex items-center gap-0.5 text-xs font-semibold text-zinc-800 dark:text-zinc-100">
                         <Star className="h-3 w-3 fill-amber-400 text-amber-400" /> {r.rating}
                       </span>
                     </div>
-                    {r.comment && <p className="mt-1.5 text-zinc-600">{r.comment}</p>}
+                    {r.comment && <p className="mt-1.5 text-zinc-600 dark:text-zinc-400">{r.comment}</p>}
                   </div>
                 ))}
               </div>

@@ -9,6 +9,9 @@ import { validate } from '../../middleware/validate.js';
 import { asyncHandler, ApiError } from '../../middleware/error.js';
 import { getOrCreateWallet, getWallet, topUpWallet, requestTopUp, approveTopUp, denyTopUp, payWithdrawal, denyWithdrawal } from '../../services/escrowService.js';
 import { notifyUser } from '../../services/notificationService.js';
+import { PlatformSettings } from '../../models/PlatformSettings.js';
+import { upload, validateUploadedFiles } from '../../middleware/upload.js';
+import { storage } from '../../config/azureBlob.js';
 
 const router = Router();
 router.use(requireAdminAuth);
@@ -22,6 +25,47 @@ const topUpSchema = z.object({
 async function writeAudit(admin, action, targetType, targetId, details = {}) {
   return AdminAuditLog.create({ adminId: admin._id, action, targetType, targetId, details });
 }
+
+const topUpPaymentSchema = z.object({
+  provider: z.enum(['esewa', 'khalti', 'fonepay', 'bank']).default('esewa'),
+  paymentDetails: z.object({
+    provider: z.enum(['esewa', 'khalti', 'fonepay', 'bank']).default('esewa'),
+    esewa: z.object({ qrCodeURL: z.string().max(500).default(''), accountName: z.string().max(100).default(''), accountNumber: z.string().max(100).default(''), notes: z.string().max(500).default('') }).default({}),
+    khalti: z.object({ qrCodeURL: z.string().max(500).default(''), accountName: z.string().max(100).default(''), accountNumber: z.string().max(100).default(''), notes: z.string().max(500).default('') }).default({}),
+    fonepay: z.object({ qrCodeURL: z.string().max(500).default(''), accountName: z.string().max(100).default(''), accountNumber: z.string().max(100).default(''), notes: z.string().max(500).default('') }).default({}),
+    bank: z.object({ bankName: z.string().max(120).default(''), accountName: z.string().max(100).default(''), accountNumber: z.string().max(100).default(''), notes: z.string().max(500).default('') }).default({})
+  }).default({})
+});
+
+router.get('/topup-payment', asyncHandler(async (_req, res) => {
+  const settings = await PlatformSettings.findOne({ key: 'platform' });
+  res.json({ topUpPayment: settings || {} });
+}));
+
+router.post('/topup-payment', upload.single('qrCode'), asyncHandler(async (req, res) => {
+  let paymentDetails = {};
+  try { paymentDetails = JSON.parse(req.body?.paymentDetails || '{}'); } catch { throw new ApiError(400, 'Invalid payment details'); }
+  const parsed = topUpPaymentSchema.parse({ provider: req.body?.provider || 'esewa', paymentDetails });
+  const activeProvider = parsed.provider;
+  const details = { ...parsed.paymentDetails, provider: activeProvider };
+  const settings = await PlatformSettings.findOneAndUpdate(
+    { key: 'platform' },
+    { $setOnInsert: { key: 'platform' }, $set: { topUpProvider: activeProvider, topUpPaymentDetails: details } },
+    { upsert: true, new: true }
+  );
+  if (req.file) {
+    validateUploadedFiles([req.file], { imagesOnly: true });
+    const ext = req.file.mimetype.split('/')[1] || 'png';
+    const blobPath = `admin-topup-qr/${req.user._id}-${Date.now()}.${ext}`;
+    await storage.upload({ blobPath, data: req.file.buffer, contentType: req.file.mimetype });
+    settings.topUpPaymentDetails[activeProvider].qrCodeURL = `/files/${blobPath}`;
+    settings.markModified('topUpPaymentDetails');
+    settings.topUpQrCodeURL = `/files/${blobPath}`;
+    await settings.save();
+  }
+  await writeAudit(req.user, 'topup_payment_settings_updated', 'PlatformSettings', settings._id, {});
+  res.json({ topUpPayment: settings });
+}));
 
 router.get('/user/:id', asyncHandler(async (req, res) => {
   const user = await User.findById(req.params.id).select('name email role photoURL paymentDetails');

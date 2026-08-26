@@ -6,6 +6,10 @@ import { asyncHandler, ApiError } from '../../middleware/error.js';
 import { payoutLimiter } from '../../middleware/rateLimiter.js';
 import { getWallet, requestPayout, requestTopUp } from '../../services/escrowService.js';
 import { Transaction } from '../../models/Transaction.js';
+import { PlatformSettings } from '../../models/PlatformSettings.js';
+import { upload, validateUploadedFiles } from '../../middleware/upload.js';
+import { uploadLimiter } from '../../middleware/rateLimiter.js';
+import { storage } from '../../config/azureBlob.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -16,7 +20,9 @@ const payoutSchema = z.object({
 
 const topUpRequestSchema = z.object({
   amount: z.number().positive(),
-  referenceNote: z.string().max(200).default('')
+  referenceNote: z.string().max(200).default(''),
+  paymentProofURL: z.string().max(500).optional().default(''),
+  paymentProvider: z.enum(['esewa', 'khalti', 'fonepay', 'bank']).default('esewa')
 });
 
 router.get('/', asyncHandler(async (req, res) => {
@@ -35,7 +41,32 @@ router.get('/', asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 })
     .populate('counterpartyId', 'name role')
     .limit(100);
-  res.json({ wallet, transactions });
+  const settings = await PlatformSettings.findOne({ key: 'platform' }).select('topUpProvider topUpPaymentDetails topUpQrCodeURL topUpPaymentLabel topUpInstructions');
+  const provider = settings?.topUpProvider || 'esewa';
+  const method = settings?.topUpPaymentDetails?.[provider] || {};
+  res.json({
+    wallet,
+    transactions,
+    topUpPayment: settings ? {
+      provider,
+      topUpQrCodeURL: method.qrCodeURL || settings.topUpQrCodeURL || '',
+      topUpPaymentLabel: method.accountName || settings.topUpPaymentLabel || provider,
+      topUpInstructions: method.notes || settings.topUpInstructions || '',
+      accountNumber: method.accountNumber || '',
+      bankName: method.bankName || '',
+      paymentMethods: settings.topUpPaymentDetails || {}
+    } : {}
+  });
+}));
+
+router.post('/topup-proof', uploadLimiter, upload.single('proof'), asyncHandler(async (req, res) => {
+  if (req.user.role !== 'business') throw new ApiError(403, 'Only business accounts can upload top-up proof');
+  if (!req.file) throw new ApiError(400, 'Please attach a payment screenshot');
+  validateUploadedFiles([req.file], { imagesOnly: true });
+  const ext = req.file.mimetype.split('/')[1] || 'png';
+  const blobPath = `topup-proofs/${req.user._id}-${Date.now()}.${ext}`;
+  await storage.upload({ blobPath, data: req.file.buffer, contentType: req.file.mimetype });
+  res.status(201).json({ paymentProofURL: `/files/${blobPath}` });
 }));
 
 router.post('/payout', payoutLimiter, validate(payoutSchema), asyncHandler(async (req, res) => {
@@ -53,7 +84,9 @@ router.post('/topup-request', payoutLimiter, validate(topUpRequestSchema), async
   const transaction = await requestTopUp({
     userId: req.user._id,
     amount: req.body.amount,
-    referenceNote: req.body.referenceNote
+    referenceNote: req.body.referenceNote,
+    paymentProofURL: req.body.paymentProofURL,
+    paymentProvider: req.body.paymentProvider
   });
   res.status(201).json({ topUpRequest: transaction });
 }));

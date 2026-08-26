@@ -65,12 +65,12 @@ export function NearbyEvents() {
   const delta = radius <= 10 ? 0.05 : radius <= 25 ? 0.12 : 0.25;
 
   return (
-    <section className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-xs">
+    <section className="rounded-2xl border border-zinc-200/80 dark:border-[#262a3e] bg-white dark:bg-[#1a1d2d] p-5 shadow-xs">
       <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-zinc-900" />
-          <h2 className="text-sm font-bold text-zinc-900">Nearby Opportunities</h2>
-          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-600">
+          <MapPin className="h-4 w-4 text-zinc-900 dark:text-white" />
+          <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Nearby Opportunities</h2>
+          <span className="rounded-full bg-zinc-100 dark:bg-[#202438] px-2 py-0.5 text-[10px] font-bold text-zinc-600 dark:text-zinc-400">
             {events.length} found
           </span>
         </div>
@@ -84,7 +84,7 @@ export function NearbyEvents() {
                 type="button"
                 onClick={() => setRadius(km)}
                 className={`rounded-md px-2 py-0.5 text-[11px] font-semibold transition-colors ${
-                  radius === km ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:text-zinc-900'
+                  radius === km ? 'bg-zinc-900 text-white' : 'text-zinc-500 dark:text-[#8e95af] hover:text-zinc-900 dark:hover:text-white'
                 }`}
               >
                 {km}km
@@ -93,12 +93,12 @@ export function NearbyEvents() {
           </div>
 
           {/* List/Map toggle */}
-          <div className="flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5 text-xs">
+          <div className="flex rounded-lg border border-zinc-200 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#121522] p-0.5 text-xs">
             <button
               type="button"
               onClick={() => setView('list')}
               className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all ${
-                view === 'list' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'
+                view === 'list' ? 'bg-white dark:bg-[#161926] text-zinc-900 dark:text-white shadow-xs' : 'text-zinc-500 dark:text-[#8e95af] hover:text-zinc-900 dark:hover:text-white'
               }`}
             >
               <List className="h-3 w-3" /> List
@@ -107,7 +107,7 @@ export function NearbyEvents() {
               type="button"
               onClick={() => setView('map')}
               className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all ${
-                view === 'map' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'
+                view === 'map' ? 'bg-white dark:bg-[#161926] text-zinc-900 dark:text-white shadow-xs' : 'text-zinc-500 dark:text-[#8e95af] hover:text-zinc-900 dark:hover:text-white'
               }`}
             >
               <MapPin className="h-3 w-3" /> Map
@@ -117,7 +117,7 @@ export function NearbyEvents() {
       </div>
 
       {view === 'map' ? (
-        <div className="relative overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
+        <div className="relative overflow-hidden rounded-xl border border-zinc-200 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#121522]">
           {hasMapsKey ? (
             <div id="nearby-map" className="h-72 w-full" />
           ) : (
@@ -127,15 +127,15 @@ export function NearbyEvents() {
                 className="h-full w-full border-0"
                 src={`https://www.openstreetmap.org/export/embed.html?bbox=${myLng - delta}%2C${myLat - delta * 0.7}%2C${myLng + delta}%2C${myLat + delta * 0.7}&layer=mapnik&marker=${myLat}%2C${myLng}`}
               />
-              <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold text-zinc-800 shadow-sm backdrop-blur-xs">
-                <Navigation className="h-3 w-3 text-zinc-900" />
+              <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-white/95 dark:bg-[#161926]/95 px-3 py-1 text-[11px] font-bold text-zinc-800 dark:text-zinc-100 shadow-sm backdrop-blur-xs">
+                <Navigation className="h-3 w-3 text-zinc-900 dark:text-white" />
                 <span>Centered on Your Location ({radius}km)</span>
               </div>
             </div>
           )}
 
           {events.length > 0 && (
-            <div className="border-t border-zinc-200/80 bg-white p-3">
+            <div className="border-t border-zinc-200/80 dark:border-[#262a3e] bg-white dark:bg-[#1a1d2d] p-3">
               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
                 Campaigns in this radius
               </p>
@@ -147,12 +147,12 @@ export function NearbyEvents() {
                     <Link
                       key={ev._id}
                       to={`/event/${ev._id}`}
-                      className="flex shrink-0 items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs hover:border-zinc-900 transition-colors"
+                      className="flex shrink-0 items-center gap-2 rounded-xl border border-zinc-200 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#121522] px-3 py-2 text-xs hover:border-zinc-900 transition-colors"
                     >
-                      <MapPin className="h-3.5 w-3.5 text-zinc-700" />
+                      <MapPin className="h-3.5 w-3.5 text-zinc-700 dark:text-zinc-300" />
                       <div>
-                        <p className="font-bold text-zinc-900">{ev.title}</p>
-                        <p className="text-[10px] text-zinc-500">
+                        <p className="font-bold text-zinc-900 dark:text-white">{ev.title}</p>
+                        <p className="text-[10px] text-zinc-500 dark:text-[#8e95af]">
                           {dist != null ? `${dist.toFixed(1)} km away` : ev.location?.address || 'Nearby'}
                         </p>
                       </div>
@@ -169,7 +169,7 @@ export function NearbyEvents() {
           <Spinner />
         </div>
       ) : events.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-200 p-6 text-center text-xs text-zinc-400">
+        <div className="rounded-xl border border-dashed border-zinc-200 dark:border-[#262a3e] p-6 text-center text-xs text-zinc-400">
           No campaigns found within {radius} km of your location.
         </div>
       ) : (

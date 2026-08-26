@@ -75,6 +75,7 @@ const userSchema = new Schema(
       state: { type: String, default: '' },
       city: { type: String, default: '' }
     },
+    showLocation: { type: Boolean, default: true },
     socials: {
       instagram: { type: String, default: '' },
       tiktok: { type: String, default: '' },

@@ -27,19 +27,19 @@ export default function RoleSelect() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-white text-zinc-900">
-      <header className="border-b border-zinc-100 px-6 py-4">
+    <div className="flex min-h-screen flex-col bg-white dark:bg-[#0c0e17] text-zinc-900 dark:text-white">
+      <header className="border-b border-zinc-100 dark:border-[#262a3e] px-6 py-4">
         <div className="mx-auto flex max-w-lg items-center justify-between">
           <button
             type="button"
             onClick={() => (pendingRole ? setPendingRole(null) : navigate('/'))}
-            className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-900 transition-colors"
+            className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500 dark:text-[#8e95af] hover:text-zinc-900 dark:hover:text-white transition-colors"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Back
           </button>
           <div className="flex items-center gap-2">
             <img src="/logo.png" alt="Collavo" className="h-6 w-6 object-contain" />
-            <span className="text-sm font-bold text-zinc-900">Collavo</span>
+            <span className="text-sm font-bold text-zinc-900 dark:text-white">Collavo</span>
           </div>
         </div>
       </header>
@@ -47,10 +47,10 @@ export default function RoleSelect() {
       <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-6 py-12">
         {!pendingRole ? (
           <div>
-            <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight text-center">
+            <h1 className="text-2xl font-extrabold text-zinc-900 dark:text-white tracking-tight text-center">
               How do you plan to use Collavo?
             </h1>
-            <p className="mt-2 text-center text-xs text-zinc-500">
+            <p className="mt-2 text-center text-xs text-zinc-500 dark:text-[#8e95af]">
               Select the account type that best describes your goals.
             </p>
 
@@ -58,18 +58,18 @@ export default function RoleSelect() {
               <button
                 type="button"
                 onClick={() => setPendingRole('creator')}
-                className="group relative flex flex-col justify-between rounded-2xl border-2 border-zinc-200 bg-white p-5 text-left hover:border-zinc-900 hover:shadow-sm transition-all"
+                className="group relative flex flex-col justify-between rounded-2xl border-2 border-zinc-200 dark:border-[#262a3e] bg-white dark:bg-[#1a1d2d] p-5 text-left hover:border-zinc-900 dark:hover:border-[#6366f1] hover:shadow-sm transition-all"
               >
                 <div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-100 text-zinc-900 group-hover:bg-zinc-900 group-hover:text-white transition-colors">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-100 dark:bg-[#202438] text-zinc-900 dark:text-white group-hover:bg-zinc-900 group-hover:text-white transition-colors">
                     <Camera className="h-5 w-5" />
                   </div>
-                  <h2 className="mt-4 text-base font-bold text-zinc-900">I'm a Creator</h2>
-                  <p className="mt-1 text-xs text-zinc-500 leading-relaxed">
+                  <h2 className="mt-4 text-base font-bold text-zinc-900 dark:text-white">I'm a Creator</h2>
+                  <p className="mt-1 text-xs text-zinc-500 dark:text-[#8e95af] leading-relaxed">
                     Collaborate with brands, get hired for campaigns, and receive verified escrow payouts.
                   </p>
                 </div>
-                <span className="mt-4 flex items-center gap-1 text-xs font-bold text-zinc-900 group-hover:underline">
+                <span className="mt-4 flex items-center gap-1 text-xs font-bold text-zinc-900 dark:text-white group-hover:underline">
                   Continue as Creator <ArrowRight className="h-3.5 w-3.5" />
                 </span>
               </button>
@@ -77,26 +77,26 @@ export default function RoleSelect() {
               <button
                 type="button"
                 onClick={() => setPendingRole('business')}
-                className="group relative flex flex-col justify-between rounded-2xl border-2 border-zinc-200 bg-white p-5 text-left hover:border-zinc-900 hover:shadow-sm transition-all"
+                className="group relative flex flex-col justify-between rounded-2xl border-2 border-zinc-200 dark:border-[#262a3e] bg-white dark:bg-[#1a1d2d] p-5 text-left hover:border-zinc-900 dark:hover:border-[#6366f1] hover:shadow-sm transition-all"
               >
                 <div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-100 text-zinc-900 group-hover:bg-zinc-900 group-hover:text-white transition-colors">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-100 dark:bg-[#202438] text-zinc-900 dark:text-white group-hover:bg-zinc-900 group-hover:text-white transition-colors">
                     <Building2 className="h-5 w-5" />
                   </div>
-                  <h2 className="mt-4 text-base font-bold text-zinc-900">I'm a Business</h2>
-                  <p className="mt-1 text-xs text-zinc-500 leading-relaxed">
+                  <h2 className="mt-4 text-base font-bold text-zinc-900 dark:text-white">I'm a Business</h2>
+                  <p className="mt-1 text-xs text-zinc-500 dark:text-[#8e95af] leading-relaxed">
                     Post collaboration campaigns, discover creators by category/location, and manage deals.
                   </p>
                 </div>
-                <span className="mt-4 flex items-center gap-1 text-xs font-bold text-zinc-900 group-hover:underline">
+                <span className="mt-4 flex items-center gap-1 text-xs font-bold text-zinc-900 dark:text-white group-hover:underline">
                   Continue as Brand <ArrowRight className="h-3.5 w-3.5" />
                 </span>
               </button>
             </div>
 
-            <p className="mt-8 text-center text-xs text-zinc-500">
+            <p className="mt-8 text-center text-xs text-zinc-500 dark:text-[#8e95af]">
               Already have an account?{' '}
-              <Link to="/auth" className="font-bold text-zinc-900 hover:underline">
+              <Link to="/auth" className="font-bold text-zinc-900 dark:text-white hover:underline">
                 Sign in
               </Link>
             </p>
@@ -104,20 +104,20 @@ export default function RoleSelect() {
         ) : (
           <div>
             <div className="text-center">
-              <span className="rounded-full bg-zinc-100 px-3 py-1 text-[11px] font-bold text-zinc-700 capitalize">
+              <span className="rounded-full bg-zinc-100 dark:bg-[#202438] px-3 py-1 text-[11px] font-bold text-zinc-700 dark:text-zinc-300 capitalize">
                 {pendingRole} Account
               </span>
-              <h1 className="mt-3 text-2xl font-extrabold text-zinc-900 tracking-tight">
+              <h1 className="mt-3 text-2xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
                 Create your account
               </h1>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-zinc-500 dark:text-[#8e95af]">
                 Enter your details to get started on Collavo.
               </p>
             </div>
 
             <form onSubmit={submit} className="mt-6 space-y-4">
               <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-700">Email address</label>
+                <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">Email address</label>
                 <input
                   type="email"
                   required
@@ -128,7 +128,7 @@ export default function RoleSelect() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-700">Password</label>
+                <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">Password</label>
                 <input
                   type="password"
                   required

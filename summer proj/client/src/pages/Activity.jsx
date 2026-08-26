@@ -54,7 +54,7 @@ const TYPE_CONFIG = {
 function getConfig(type) {
   return TYPE_CONFIG[type] || {
     icon: Bell,
-    color: 'bg-zinc-100 text-zinc-700',
+    color: 'bg-zinc-100 dark:bg-[#202438] text-zinc-700 dark:text-zinc-300',
     label: 'Update',
     getHref: () => '/activity',
   };
@@ -108,7 +108,7 @@ export default function Activity() {
   return (
     <div className="pb-12 max-w-2xl">
       <div className="mb-6">
-        <h1 className="text-xl font-bold tracking-tight text-zinc-900">Activity &amp; Updates</h1>
+        <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-white">Activity &amp; Updates</h1>
         <p className="text-xs text-zinc-500 mt-0.5">
           Tap any notification to go directly to the relevant section.
         </p>
@@ -119,9 +119,9 @@ export default function Activity() {
           <Spinner />
         </div>
       ) : notifications.length === 0 ? (
-        <div className="rounded-2xl border border-zinc-200/80 bg-white p-12 text-center text-xs text-zinc-400">
+        <div className="rounded-2xl border border-zinc-200/80 dark:border-[#262a3e] bg-white dark:bg-[#1a1d2d] p-12 text-center text-xs text-zinc-400">
           <Bell className="mx-auto h-8 w-8 text-zinc-300 mb-2" />
-          <p className="font-bold text-zinc-700">No activity yet</p>
+          <p className="font-bold text-zinc-700 dark:text-zinc-300">No activity yet</p>
           <p className="mt-1">Notifications about accepted deals, escrow locks, and payouts appear here.</p>
         </div>
       ) : (
@@ -142,9 +142,9 @@ export default function Activity() {
                     handleClick(n);
                   }
                 }}
-                className={`flex w-full items-start gap-3.5 rounded-xl border bg-white p-3.5 shadow-xs transition-all text-left hover:shadow-md hover:-translate-y-px active:scale-[0.99] cursor-pointer ${
+                className={`flex w-full items-start gap-3.5 rounded-xl border bg-white dark:bg-[#1a1d2d] p-3.5 shadow-xs transition-all text-left hover:shadow-md hover:-translate-y-px active:scale-[0.99] cursor-pointer ${
                   n.read
-                    ? 'border-zinc-200/70 opacity-90'
+                    ? 'border-zinc-200/70 dark:border-[#262a3e] opacity-90'
                     : 'border-indigo-200 ring-1 ring-indigo-100'
                 }`}
               >
@@ -167,7 +167,7 @@ export default function Activity() {
                       <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0" />
                     )}
                   </div>
-                  <p className="text-xs font-semibold text-zinc-900 leading-snug">{n.message}</p>
+                  <p className="text-xs font-semibold text-zinc-900 dark:text-white leading-snug">{n.message}</p>
                   <p className="mt-1 text-[10px] text-zinc-400">{timeAgo(n.createdAt)}</p>
                   {showFollowBack && (
                     <button

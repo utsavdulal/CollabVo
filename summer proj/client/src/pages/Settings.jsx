@@ -190,18 +190,18 @@ export default function Settings() {
   return (
     <div className="pb-12 max-w-2xl">
       <div className="mb-6">
-        <h1 className="text-xl font-bold tracking-tight text-zinc-900">Account Settings</h1>
-        <p className="text-xs text-zinc-500 mt-0.5">Manage your profile, separate payment details per provider, location, and social channels.</p>
+        <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-white">Account Settings</h1>
+        <p className="text-xs text-zinc-500 dark:text-[#8e95af] mt-0.5">Manage your profile, separate payment details per provider, location, and social channels.</p>
       </div>
 
-      <form onSubmit={save} className="space-y-5 rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-xs">
+      <form onSubmit={save} className="space-y-5 rounded-2xl border border-zinc-200/80 dark:border-[#262a3e] bg-white dark:bg-[#1a1d2d] p-6 shadow-xs">
         {/* Profile Photo */}
-        <div className="flex items-center gap-4 pb-4 border-b border-zinc-100">
+        <div className="flex items-center gap-4 pb-4 border-b border-zinc-100 dark:border-[#262a3e]">
           <div className="relative shrink-0">
             {preview ? (
-              <img src={preview} alt="Profile" className="h-16 w-16 rounded-full object-cover border-2 border-zinc-200" />
+              <img src={preview} alt="Profile" className="h-16 w-16 rounded-full object-cover border-2 border-zinc-200 dark:border-[#262a3e]" />
             ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100 dark:bg-[#202438] text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-[#262a3e]">
                 <User className="h-8 w-8" />
               </div>
             )}
@@ -216,15 +216,15 @@ export default function Settings() {
             </label>
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-zinc-900">Profile Photo</p>
-            <p className="text-xs text-zinc-500">JPG, PNG or WEBP · max 10 MB</p>
+            <p className="text-sm font-bold text-zinc-900 dark:text-white">Profile Photo</p>
+            <p className="text-xs text-zinc-500 dark:text-[#8e95af]">JPG, PNG or WEBP · max 10 MB</p>
             {photoBusy && <p className="mt-1 text-xs font-medium text-indigo-600">Uploading...</p>}
           </div>
         </div>
 
         {/* Display Name */}
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-700">Display Name</label>
+          <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">Display Name</label>
           <input
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -235,7 +235,7 @@ export default function Settings() {
 
         {/* Bio */}
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-700">Bio</label>
+          <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">Bio</label>
           <textarea
             value={form.bio}
             onChange={(e) => setForm({ ...form, bio: e.target.value })}
@@ -247,7 +247,7 @@ export default function Settings() {
 
         {/* Category */}
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-700">Category / Niche</label>
+          <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">Category / Niche</label>
           <input
             value={form.category}
             onChange={(e) => setForm({ ...form, category: e.target.value })}
@@ -258,7 +258,7 @@ export default function Settings() {
 
         {/* Country, State, City Location */}
         <div>
-          <label className="mb-1.5 block text-xs font-bold text-zinc-900">Location (Country, State, City)</label>
+          <label className="mb-1.5 block text-xs font-bold text-zinc-900 dark:text-white">Location (Country, State, City)</label>
           <PlaceInput
             value={form.location}
             onChange={(location) => setForm({ ...form, location })}
@@ -267,21 +267,21 @@ export default function Settings() {
 
         {/* Creator Payout & Payment Details Section */}
         {user?.role !== 'business' && (
-          <div className="pt-5 border-t border-zinc-100">
+          <div className="pt-5 border-t border-zinc-100 dark:border-[#262a3e]">
             <div className="flex items-center gap-2 mb-3">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-[#6366f1]">
                 <QrCode className="h-4 w-4" />
               </div>
               <div>
-                <h3 className="text-xs font-bold text-zinc-900">Payout & Payment Options</h3>
-                <p className="text-[11px] text-zinc-500">Each payment method has its own independent QR code and details</p>
+                <h3 className="text-xs font-bold text-zinc-900 dark:text-white">Payout & Payment Options</h3>
+                <p className="text-[11px] text-zinc-500 dark:text-[#8e95af]">Each payment method has its own independent QR code and details</p>
               </div>
             </div>
 
             {/* Provider Selector with Official Brand Logos */}
             <div className="mb-4">
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold text-zinc-700">Select Payout Method to Edit / Activate</label>
+                <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Select Payout Method to Edit / Activate</label>
                 <span className="text-[10px] font-bold text-emerald-600 uppercase bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                   Active: {getProviderConfig(activeProvider).label}
                 </span>
@@ -302,7 +302,7 @@ export default function Settings() {
                       className={`relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border p-3 text-center transition-all cursor-pointer ${
                         isSelected
                           ? `${p.activeClass} ring-2 ring-offset-1 ring-indigo-300`
-                          : 'border-zinc-200 bg-zinc-50/80 text-zinc-700 hover:bg-zinc-100 hover:border-zinc-300'
+                          : 'border-zinc-200 dark:border-[#262a3e] bg-zinc-50/80 dark:bg-[#121522] text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-[#212538] hover:border-zinc-300 dark:hover:border-[#3a4060]'
                       }`}
                     >
                       {hasDetails && (
@@ -330,11 +330,11 @@ export default function Settings() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-zinc-700">Bank Name (Top 10 Banks of Nepal)</label>
+                  <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">Bank Name (Top 10 Banks of Nepal)</label>
                   <select
                     value={currentMethodData.bankName || NEPAL_BANKS[0]}
                     onChange={(e) => updateCurrentMethodField('bankName', e.target.value)}
-                    className="input py-2 text-xs bg-white font-medium"
+                    className="input py-2 text-xs bg-white dark:bg-[#161926] font-medium"
                   >
                     {NEPAL_BANKS.map((b) => (
                       <option key={b} value={b}>
@@ -346,88 +346,88 @@ export default function Settings() {
 
                 <div className="grid gap-2.5 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-zinc-700">Account Holder Full Name</label>
+                    <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">Account Holder Full Name</label>
                     <input
                       value={currentMethodData.accountName || ''}
                       onChange={(e) => updateCurrentMethodField('accountName', e.target.value)}
-                      className="input py-2 text-xs bg-white"
+                      className="input py-2 text-xs bg-white dark:bg-[#161926]"
                       placeholder="e.g. Ram Bahadur Thapa"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-zinc-700">Bank Account Number</label>
+                    <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">Bank Account Number</label>
                     <input
                       value={currentMethodData.accountNumber || ''}
                       onChange={(e) => updateCurrentMethodField('accountNumber', e.target.value)}
-                      className="input py-2 text-xs font-mono bg-white"
+                      className="input py-2 text-xs font-mono bg-white dark:bg-[#161926]"
                       placeholder="e.g. 01234567890123"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-zinc-700">Bank Branch / Remarks (Optional)</label>
+                  <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">Bank Branch / Remarks (Optional)</label>
                   <input
                     value={currentMethodData.notes || ''}
                     onChange={(e) => updateCurrentMethodField('notes', e.target.value)}
-                    className="input py-2 text-xs bg-white"
+                    className="input py-2 text-xs bg-white dark:bg-[#161926]"
                     placeholder="e.g. New Road Branch, Kathmandu"
                   />
                 </div>
               </div>
             ) : (
               /* Wallet Fields with Dedicated QR (eSewa / Khalti / Fonepay) */
-              <div className="space-y-3 mb-4 rounded-2xl border border-zinc-200 bg-zinc-50/50 p-4">
-                <div className="flex items-center justify-between pb-2 border-b border-zinc-200/60">
-                  <span className="text-xs font-bold text-zinc-900 capitalize">
+              <div className="space-y-3 mb-4 rounded-2xl border border-zinc-200 dark:border-[#262a3e] bg-zinc-50/50 dark:bg-[#121522] p-4">
+                <div className="flex items-center justify-between pb-2 border-b border-zinc-200/60 dark:border-[#262a3e]">
+                  <span className="text-xs font-bold text-zinc-900 dark:text-white capitalize">
                     {getProviderConfig(activeProvider).label} Dedicated Details &amp; QR
                   </span>
-                  <span className="text-[10px] text-zinc-500">
+                  <span className="text-[10px] text-zinc-500 dark:text-[#8e95af]">
                     Separate from other payment methods
                   </span>
                 </div>
 
                 <div className="grid gap-2.5 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-zinc-700">Account Holder Full Name</label>
+                    <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">Account Holder Full Name</label>
                     <input
                       value={currentMethodData.accountName || ''}
                       onChange={(e) => updateCurrentMethodField('accountName', e.target.value)}
-                      className="input py-2 text-xs bg-white"
+                      className="input py-2 text-xs bg-white dark:bg-[#161926]"
                       placeholder="e.g. Ram Sharma"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-zinc-700 capitalize">
+                    <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300 capitalize">
                       {getProviderConfig(activeProvider).label} Mobile / ID Number
                     </label>
                     <input
                       value={currentMethodData.accountNumber || ''}
                       onChange={(e) => updateCurrentMethodField('accountNumber', e.target.value)}
-                      className="input py-2 text-xs font-mono bg-white"
+                      className="input py-2 text-xs font-mono bg-white dark:bg-[#161926]"
                       placeholder="98XXXXXXXX"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-zinc-700">Transfer Instructions / Notes (Optional)</label>
+                  <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">Transfer Instructions / Notes (Optional)</label>
                   <input
                     value={currentMethodData.notes || ''}
                     onChange={(e) => updateCurrentMethodField('notes', e.target.value)}
-                    className="input py-2 text-xs bg-white"
+                    className="input py-2 text-xs bg-white dark:bg-[#161926]"
                     placeholder="Remarks or transfer reference note"
                   />
                 </div>
 
                 {/* QR Code Upload Box Dedicated to this Provider */}
                 <div className="pt-2">
-                  <label className="mb-1.5 block text-xs font-semibold text-zinc-700">
+                  <label className="mb-1.5 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                     {getProviderConfig(activeProvider).label} QR Code Image
                   </label>
-                  <div className="flex items-center gap-4 rounded-xl border border-zinc-200 bg-white p-3.5">
+                  <div className="flex items-center gap-4 rounded-xl border border-zinc-200 dark:border-[#262a3e] bg-white dark:bg-[#1a1d2d] p-3.5">
                     {currentMethodData.qrCodeURL ? (
                       <div className="relative group shrink-0">
                         <img
@@ -441,7 +441,7 @@ export default function Settings() {
                         </label>
                       </div>
                     ) : (
-                      <label className="flex h-20 w-20 flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-300 bg-zinc-50 text-zinc-400 hover:border-indigo-500 cursor-pointer shrink-0 transition-colors">
+                      <label className="flex h-20 w-20 flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-300 dark:border-[#323752] bg-zinc-50 dark:bg-[#121522] text-zinc-400 dark:text-[#8e95af] hover:border-indigo-500 cursor-pointer shrink-0 transition-colors">
                         <QrCode className="h-5 w-5 mb-0.5" />
                         <span className="text-[10px] font-bold">Upload QR</span>
                         <input type="file" accept="image/*" className="hidden" onChange={onQRUpload} disabled={qrBusy} />
@@ -449,14 +449,14 @@ export default function Settings() {
                     )}
 
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-zinc-900">
+                      <p className="text-xs font-bold text-zinc-900 dark:text-white">
                         {currentMethodData.qrCodeURL ? `${getProviderConfig(activeProvider).label} QR Attached` : `No QR for ${getProviderConfig(activeProvider).label}`}
                       </p>
-                      <p className="text-[11px] text-zinc-500 mt-0.5">
+                      <p className="text-[11px] text-zinc-500 dark:text-[#8e95af] mt-0.5">
                         Upload your personal {getProviderConfig(activeProvider).label} scanner QR code.
                       </p>
                       <div className="mt-2 flex items-center gap-2">
-                        <label className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-zinc-700 cursor-pointer hover:bg-zinc-50 transition-colors">
+                        <label className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 dark:border-[#323752] bg-white dark:bg-[#161926] px-2.5 py-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 cursor-pointer hover:bg-zinc-50 dark:hover:bg-[#161926] transition-colors">
                           {qrBusy ? 'Uploading...' : currentMethodData.qrCodeURL ? 'Change QR' : 'Choose File'}
                           <input type="file" accept="image/*" className="hidden" onChange={onQRUpload} disabled={qrBusy} />
                         </label>
@@ -479,14 +479,14 @@ export default function Settings() {
         )}
 
         {/* Connected Social Accounts */}
-        <div className="pt-4 border-t border-zinc-100">
-          <label className="mb-2 block text-xs font-bold text-zinc-900">
+        <div className="pt-4 border-t border-zinc-100 dark:border-[#262a3e]">
+          <label className="mb-2 block text-xs font-bold text-zinc-900 dark:text-white">
             Connected Social Accounts
           </label>
           <div className="grid gap-2 sm:grid-cols-2">
             {socials.map(({ key, label, icon: Icon }) => (
               <div key={key} className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-100 text-zinc-700 shrink-0">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-100 text-zinc-700 dark:bg-[#202438] dark:text-zinc-300 shrink-0">
                   <Icon className="h-4 w-4" />
                 </div>
                 <input

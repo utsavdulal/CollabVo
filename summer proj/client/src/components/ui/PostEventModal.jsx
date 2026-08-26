@@ -6,23 +6,48 @@ import { PlaceInput } from './PlaceInput.jsx';
 const CATEGORIES = ['retail', 'food', 'tech', 'fashion', 'beauty', 'entertainment', 'services', 'other'];
 const PLATFORMS = ['Instagram', 'YouTube', 'TikTok', 'Facebook'];
 
-export function PostEventModal({ open, onClose, onCreated }) {
-  const [form, setForm] = useState({
-    title: '',
-    description: '',
-    category: 'fashion',
-    platform: 'Instagram',
-    image: '',
-    budget: '',
-    date: '',
+function formFromEvent(event) {
+  if (!event) {
+    return {
+      title: '',
+      description: '',
+      category: 'fashion',
+      platform: 'Instagram',
+      workMode: 'onsite',
+      image: '',
+      budget: '',
+      date: '',
+      deliverables: { videos: 1, posts: 1, storyMentions: 1 },
+      creatorsNeeded: 1,
+      location: { coordinates: [85.324, 27.7172], address: 'Kathmandu, Nepal', country: 'Nepal', state: 'Bagmati Province', city: 'Kathmandu' }
+    };
+  }
+  return {
+    title: event.title || '',
+    description: event.description || '',
+    category: event.category || 'other',
+    platform: event.platform || 'Instagram',
+    workMode: event.workMode || 'onsite',
+    image: event.image || '',
+    budget: event.budget ?? '',
+    date: event.date ? new Date(event.date).toISOString().slice(0, 10) : '',
     deliverables: {
-      videos: 1,
-      posts: 1,
-      storyMentions: 1
+      videos: event.deliverables?.videos ?? 1,
+      posts: event.deliverables?.posts ?? 1,
+      storyMentions: event.deliverables?.storyMentions ?? 1
     },
-    creatorsNeeded: 1,
-    location: { coordinates: [85.324, 27.7172], address: 'Kathmandu, Nepal', country: 'Nepal', state: 'Bagmati Province', city: 'Kathmandu' }
-  });
+    creatorsNeeded: event.creatorsNeeded ?? 1,
+    location: {
+      ...(event.location || {}),
+      coordinates: event.location?.coordinates?.length === 2 ? event.location.coordinates : [85.324, 27.7172],
+      address: event.location?.address || ''
+    }
+  };
+}
+
+export function PostEventModal({ open, onClose, onCreated, event }) {
+  const isEdit = Boolean(event);
+  const [form, setForm] = useState(() => formFromEvent(event));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -65,6 +90,7 @@ export function PostEventModal({ open, onClose, onCreated }) {
         description: form.description.trim(),
         category: form.category,
         platform: form.platform,
+        workMode: form.workMode,
         image: form.image.trim() || undefined,
         budget: Number(form.budget) || 0,
         deliverables: {
@@ -76,11 +102,13 @@ export function PostEventModal({ open, onClose, onCreated }) {
         date: form.date ? new Date(form.date).toISOString() : undefined,
         location: form.location
       };
-      const res = await api('/events', { method: 'POST', body: payload });
+      const res = isEdit
+        ? await api(`/events/${event._id}`, { method: 'PATCH', body: payload })
+        : await api('/events', { method: 'POST', body: payload });
       if (onCreated) onCreated(res.event);
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to create campaign');
+      setError(err.message || (isEdit ? 'Failed to save changes' : 'Failed to create campaign'));
     } finally {
       setBusy(false);
     }
@@ -98,8 +126,12 @@ export function PostEventModal({ open, onClose, onCreated }) {
               <Tag className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-sm font-extrabold text-zinc-900 dark:text-white">Post New Campaign</h2>
-              <p className="text-[10px] text-zinc-500 dark:text-[#8e95af]">Specify requirements, budget, and location</p>
+              <h2 className="text-sm font-extrabold text-zinc-900 dark:text-white">
+                {isEdit ? 'Edit Campaign' : 'Post New Campaign'}
+              </h2>
+              <p className="text-[10px] text-zinc-500 dark:text-[#8e95af]">
+                {isEdit ? 'Update details of your campaign' : 'Specify requirements, budget, and location'}
+              </p>
             </div>
           </div>
           <button
@@ -159,7 +191,7 @@ export function PostEventModal({ open, onClose, onCreated }) {
                         deliverables: { ...f.deliverables, videos: Math.max(0, (f.deliverables?.videos || 0) - 1) }
                       }))
                     }
-                    className="flex h-6 w-6 items-center justify-center rounded-lg bg-zinc-100 dark:bg-[#202438] hover:bg-zinc-200 text-zinc-700 dark:text-zinc-300 font-bold"
+                    className="flex h-6 w-6 items-center justify-center rounded-lg bg-zinc-100 dark:bg-[#202438] hover:bg-zinc-200 dark:hover:bg-[#232542] text-zinc-700 dark:text-zinc-300 font-bold"
                   >
                     -
                   </button>
@@ -193,7 +225,7 @@ export function PostEventModal({ open, onClose, onCreated }) {
                         deliverables: { ...f.deliverables, posts: Math.max(0, (f.deliverables?.posts || 0) - 1) }
                       }))
                     }
-                    className="flex h-6 w-6 items-center justify-center rounded-lg bg-zinc-100 dark:bg-[#202438] hover:bg-zinc-200 text-zinc-700 dark:text-zinc-300 font-bold"
+                    className="flex h-6 w-6 items-center justify-center rounded-lg bg-zinc-100 dark:bg-[#202438] hover:bg-zinc-200 dark:hover:bg-[#232542] text-zinc-700 dark:text-zinc-300 font-bold"
                   >
                     -
                   </button>
@@ -227,7 +259,7 @@ export function PostEventModal({ open, onClose, onCreated }) {
                         deliverables: { ...f.deliverables, storyMentions: Math.max(0, (f.deliverables?.storyMentions || 0) - 1) }
                       }))
                     }
-                    className="flex h-6 w-6 items-center justify-center rounded-lg bg-zinc-100 dark:bg-[#202438] hover:bg-zinc-200 text-zinc-700 dark:text-zinc-300 font-bold"
+                    className="flex h-6 w-6 items-center justify-center rounded-lg bg-zinc-100 dark:bg-[#202438] hover:bg-zinc-200 dark:hover:bg-[#232542] text-zinc-700 dark:text-zinc-300 font-bold"
                   >
                     -
                   </button>
@@ -257,7 +289,7 @@ export function PostEventModal({ open, onClose, onCreated }) {
                 <button
                   type="button"
                   onClick={() => setForm((f) => ({ ...f, creatorsNeeded: Math.max(1, (f.creatorsNeeded || 1) - 1) }))}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-white dark:bg-[#121522] border border-zinc-200 dark:border-[#262a3e] hover:bg-zinc-50 text-zinc-700 dark:text-zinc-300 font-bold text-xs shadow-xs"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-white dark:bg-[#121522] border border-zinc-200 dark:border-[#262a3e] hover:bg-zinc-50 dark:hover:bg-[#161926] text-zinc-700 dark:text-zinc-300 font-bold text-xs shadow-xs"
                 >
                   -
                 </button>
@@ -300,6 +332,17 @@ export function PostEventModal({ open, onClose, onCreated }) {
             </div>
           </div>
 
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">Work Mode</label>
+            <div className="grid grid-cols-2 gap-2">
+              {[['onsite', 'On-site visit required', 'Creator visits your location'], ['remote', 'Remote collaboration', 'Work can be completed remotely']].map(([value, title, subtitle]) => (
+                <button key={value} type="button" onClick={() => setForm({ ...form, workMode: value })} className={`rounded-xl border p-3 text-left transition-colors ${form.workMode === value ? 'border-indigo-600 bg-indigo-50 text-indigo-800 dark:border-indigo-400 dark:bg-[#232542] dark:text-indigo-200' : 'border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-[#262a3e] dark:bg-[#121522] dark:text-zinc-300'}`}>
+                  <span className="block text-xs font-bold">{title}</span><span className="mt-0.5 block text-[10px] opacity-75">{subtitle}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">Budget (₹ per creator)</label>
@@ -339,7 +382,7 @@ export function PostEventModal({ open, onClose, onCreated }) {
                 </div>
               </div>
             ) : (
-              <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-zinc-300 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#121522] py-5 text-center hover:border-zinc-400 transition-colors">
+              <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-zinc-300 dark:border-[#262a3e] bg-zinc-50 dark:bg-[#121522] py-5 text-center hover:border-zinc-400 dark:hover:border-[#3a4060] transition-colors">
                 <ImageIcon className="h-6 w-6 text-zinc-400 mb-1" />
                 <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
                   {uploading ? 'Uploading...' : 'Click to upload a photo'}
@@ -366,13 +409,13 @@ export function PostEventModal({ open, onClose, onCreated }) {
             </div>
           </div>
 
-          <div>
+          {form.workMode === 'onsite' && <div>
             <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">Shoot / Event Location</label>
             <PlaceInput
               value={form.location}
               onChange={(location) => setForm({ ...form, location })}
             />
-          </div>
+          </div>}
 
           {error && <p className="text-xs text-red-600 font-medium">{error}</p>}
         </form>
@@ -392,7 +435,7 @@ export function PostEventModal({ open, onClose, onCreated }) {
             disabled={busy}
             className="btn-primary flex-1 py-2.5 text-xs font-bold justify-center"
           >
-            {busy ? 'Posting...' : 'Post Campaign'}
+            {busy ? (isEdit ? 'Saving...' : 'Posting...') : isEdit ? 'Save Changes' : 'Post Campaign'}
           </button>
         </div>
       </div>

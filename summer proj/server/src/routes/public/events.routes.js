@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { Event } from '../../models/Event.js';
+import { Proposal } from '../../models/Proposal.js';
+import { Notification } from '../../models/Notification.js';
 import { requireAuth, requireRole } from '../../middleware/auth.js';
 import { validate } from '../../middleware/validate.js';
 import { asyncHandler, ApiError } from '../../middleware/error.js';
 import { upload, validateUploadedFiles } from '../../middleware/upload.js';
 import { uploadLimiter } from '../../middleware/rateLimiter.js';
 import { storage } from '../../config/azureBlob.js';
+import { notifyUser } from '../../services/notificationService.js';
 
 const router = Router();
 
@@ -15,6 +18,7 @@ const eventSchema = z.object({
   description: z.string().max(2000).default(''),
   category: z.string().min(1).max(60),
   platform: z.string().max(40).default(''),
+  workMode: z.enum(['onsite', 'remote']).default('onsite'),
   image: z.string().max(500).default(''),
   budget: z.number().min(0).default(0),
   deliverables: z.object({
@@ -113,6 +117,77 @@ router.post('/', requireAuth, requireRole('business'), validate(eventSchema), as
     createdBy: req.user._id
   });
   res.status(201).json({ event });
+}));
+
+const eventUpdateSchema = eventSchema.partial();
+
+router.patch('/:id', requireAuth, requireRole('business'), validate(eventUpdateSchema), asyncHandler(async (req, res) => {
+  const event = await Event.findById(req.params.id);
+  if (!event) throw new ApiError(404, 'Event not found');
+  if (String(event.createdBy) !== String(req.user._id)) {
+    throw new ApiError(403, 'You can only edit your own campaigns');
+  }
+  if (event.status === 'filled') {
+    throw new ApiError(400, 'This campaign is full and can no longer be edited');
+  }
+
+  const data = req.body;
+  for (const key of ['title', 'description', 'category', 'platform', 'workMode', 'image', 'budget', 'date']) {
+    if (data[key] !== undefined) event[key] = data[key];
+  }
+  if (data.deliverables !== undefined) {
+    event.deliverables = {
+      videos: data.deliverables.videos ?? event.deliverables?.videos ?? 0,
+      posts: data.deliverables.posts ?? event.deliverables?.posts ?? 0,
+      storyMentions: data.deliverables.storyMentions ?? event.deliverables?.storyMentions ?? 0
+    };
+  }
+  if (data.creatorsNeeded !== undefined) {
+    const hired = event.creatorsHired || 0;
+    if (data.creatorsNeeded < hired) {
+      throw new ApiError(400, `Creators needed cannot be less than already hired (${hired})`);
+    }
+    event.creatorsNeeded = data.creatorsNeeded;
+  }
+  if (data.location !== undefined) {
+    event.location = {
+      type: 'Point',
+      coordinates: data.location.coordinates,
+      address: data.location.address
+    };
+  }
+
+  await event.save();
+  res.json({ event });
+}));
+
+router.delete('/:id', requireAuth, requireRole('business'), asyncHandler(async (req, res) => {
+  const event = await Event.findById(req.params.id);
+  if (!event) throw new ApiError(404, 'Event not found');
+  if (String(event.createdBy) !== String(req.user._id)) {
+    throw new ApiError(403, 'You can only delete your own campaigns');
+  }
+
+  const accepted = await Proposal.countDocuments({ eventId: event._id, status: 'accepted' });
+  if (accepted > 0 || event.status === 'filled') {
+    throw new ApiError(400, 'This campaign has hired creators and cannot be deleted. Resolve the proposals instead.');
+  }
+
+  const pending = await Proposal.find({ eventId: event._id, status: 'pending' }).select('_id fromUserId');
+  if (pending.length > 0) {
+    await Proposal.deleteMany({ _id: { $in: pending.map((p) => p._id) } });
+    for (const p of pending) {
+      await notifyUser(p.fromUserId, {
+        type: 'proposal',
+        message: `"${event.title}" was removed by the business. Your application is no longer under review.`,
+        relatedId: null
+      });
+    }
+  }
+  await Notification.deleteMany({ type: 'proposal', relatedId: event._id });
+
+  await Event.deleteOne({ _id: event._id });
+  res.json({ success: true });
 }));
 
 router.post('/image', requireAuth, requireRole('business'), uploadLimiter, upload.single('image'), asyncHandler(async (req, res) => {

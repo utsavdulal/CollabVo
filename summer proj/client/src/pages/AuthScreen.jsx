@@ -67,17 +67,17 @@ export default function AuthScreen() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-white text-zinc-900">
-      <header className="border-b border-zinc-100 px-6 py-4">
+    <div className="flex min-h-screen flex-col bg-white dark:bg-[#0c0e17] text-zinc-900 dark:text-white">
+      <header className="border-b border-zinc-100 dark:border-[#262a3e] px-6 py-4">
         <div className="mx-auto flex max-w-md items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <img src="/logo.png" alt="Collavo" className="h-7 w-7 object-contain" />
-            <span className="text-base font-extrabold tracking-tight text-zinc-900">Collavo</span>
+            <span className="text-base font-extrabold tracking-tight text-zinc-900 dark:text-white">Collavo</span>
           </Link>
           <button
             type="button"
             onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
-            className="text-xs font-semibold text-zinc-600 hover:text-zinc-900"
+            className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
           >
             {mode === 'signin' ? 'Create Account' : 'Sign In'}
           </button>
@@ -86,10 +86,10 @@ export default function AuthScreen() {
 
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-10">
         <div className="text-center">
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">
+          <h1 className="text-2xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
             {mode === 'signin' ? 'Sign in to Collavo' : 'Create your account'}
           </h1>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-xs text-zinc-500 dark:text-[#8e95af]">
             {mode === 'signin'
               ? 'Access your proposals, campaigns, and wallet'
               : 'Join verified brands and content creators'}
@@ -98,27 +98,27 @@ export default function AuthScreen() {
 
         {/* Demo Login Quick Selection */}
         {mode === 'signin' && (
-          <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3.5">
-            <p className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-700 uppercase tracking-wider">
-              <Sparkles className="h-3.5 w-3.5 text-zinc-900" />
+          <div className="mt-6 rounded-2xl border border-zinc-200 dark:border-[#262a3e] bg-zinc-50/70 dark:bg-[#161926]/70 p-3.5">
+            <p className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
+              <Sparkles className="h-3.5 w-3.5 text-zinc-900 dark:text-white" />
               <span>1-Click Demo Login</span>
             </p>
             <div className="mt-2.5 grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => fillDemo('demo.business@collavo.app', 'Demo@1234')}
-                className="flex flex-col items-start rounded-xl border border-zinc-200 bg-white p-2.5 text-left hover:border-zinc-900 hover:shadow-xs transition-all"
+                className="flex flex-col items-start rounded-xl border border-zinc-200 dark:border-[#262a3e] bg-white dark:bg-[#161926] p-2.5 text-left hover:border-zinc-900 dark:hover:border-[#6366f1] hover:shadow-xs transition-all"
               >
-                <span className="text-xs font-bold text-zinc-900">Demo Business</span>
-                <span className="text-[10px] text-zinc-400">Verified · ₹5k balance</span>
+                <span className="text-xs font-bold text-zinc-900 dark:text-white">Demo Business</span>
+                <span className="text-[10px] text-zinc-400 dark:text-[#8e95af]">Verified · ₹5k balance</span>
               </button>
               <button
                 type="button"
                 onClick={() => fillDemo('demo.creator@collavo.app', 'Demo@1234')}
-                className="flex flex-col items-start rounded-xl border border-zinc-200 bg-white p-2.5 text-left hover:border-zinc-900 hover:shadow-xs transition-all"
+                className="flex flex-col items-start rounded-xl border border-zinc-200 dark:border-[#262a3e] bg-white dark:bg-[#161926] p-2.5 text-left hover:border-zinc-900 dark:hover:border-[#6366f1] hover:shadow-xs transition-all"
               >
-                <span className="text-xs font-bold text-zinc-900">Demo Creator</span>
-                <span className="text-[10px] text-zinc-400">Active Creator</span>
+                <span className="text-xs font-bold text-zinc-900 dark:text-white">Demo Creator</span>
+                <span className="text-[10px] text-zinc-400 dark:text-[#8e95af]">Active Creator</span>
               </button>
             </div>
           </div>
@@ -127,7 +127,7 @@ export default function AuthScreen() {
         <form onSubmit={submit} className="mt-6 space-y-4">
           {mode === 'signup' && (
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-zinc-700">Account Type</label>
+              <label className="mb-1.5 block text-xs font-medium text-zinc-700 dark:text-zinc-300">Account Type</label>
               <div className="grid grid-cols-2 gap-2">
                 {['creator', 'business'].map((r) => (
                   <button
@@ -136,8 +136,8 @@ export default function AuthScreen() {
                     onClick={() => setRole(r)}
                     className={`rounded-xl border py-2 text-xs font-bold capitalize transition-colors ${
                       role === r
-                        ? 'border-zinc-900 bg-zinc-900 text-white'
-                        : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300'
+                        ? 'border-zinc-900 bg-zinc-900 text-white dark:border-[#6366f1] dark:bg-[#6366f1] dark:text-white'
+                        : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 dark:border-[#262a3e] dark:bg-[#161926] dark:text-zinc-300 dark:hover:border-[#3a4060]'
                     }`}
                   >
                     {r === 'business' ? 'Brand / Business' : 'Creator'}
@@ -148,7 +148,7 @@ export default function AuthScreen() {
           )}
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">Email address</label>
+            <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">Email address</label>
             <input
               type="email"
               required
@@ -161,7 +161,7 @@ export default function AuthScreen() {
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-medium text-zinc-700">Password</label>
+              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">Password</label>
             </div>
             <input
               type="password"
@@ -182,14 +182,14 @@ export default function AuthScreen() {
         </form>
 
         <div className="my-6 flex items-center gap-3">
-          <div className="h-px flex-1 bg-zinc-200" />
-          <span className="text-[11px] font-medium text-zinc-400 uppercase">or</span>
-          <div className="h-px flex-1 bg-zinc-200" />
+          <div className="h-px flex-1 bg-zinc-200 dark:bg-[#262a3e]" />
+          <span className="text-[11px] font-medium text-zinc-400 dark:text-[#8e95af] uppercase">or</span>
+          <div className="h-px flex-1 bg-zinc-200 dark:bg-[#262a3e]" />
         </div>
 
         <a
           href="/api/auth/google"
-          className="btn-secondary w-full py-2.5 text-xs text-zinc-700 font-medium"
+          className="btn-secondary w-full py-2.5 text-xs text-zinc-700 dark:text-zinc-300 font-medium"
         >
           <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/>
@@ -200,12 +200,12 @@ export default function AuthScreen() {
           Continue with Google
         </a>
 
-        <p className="mt-6 text-center text-xs text-zinc-500">
+        <p className="mt-6 text-center text-xs text-zinc-500 dark:text-[#8e95af]">
           {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
           <button
             type="button"
             onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
-            className="font-bold text-zinc-900 hover:underline"
+            className="font-bold text-zinc-900 dark:text-white hover:underline"
           >
             {mode === 'signin' ? 'Sign up' : 'Sign in'}
           </button>

@@ -262,6 +262,66 @@ async function main() {
   const audit = await adminApi('/panel/analytics', { token: adminLogin.accessToken });
   ok(audit.totalCreators >= 1 && audit.totalBusinesses >= 2, `analytics: creators=${audit.totalCreators} businesses=${audit.totalBusinesses}`);
 
+  console.log('\n== 13. Event editing ==');
+  const editEvt = await api('/api/events', {
+    method: 'POST',
+    token: biz.accessToken,
+    body: { title: 'Editable Campaign', category: 'retail', platform: 'instagram', budget: 1000, location: { coordinates: [77.2, 28.6], address: 'New Delhi' } }
+  });
+  const edited = await api(`/api/events/${editEvt.event._id}`, {
+    method: 'PATCH',
+    token: biz.accessToken,
+    body: { title: 'Launch Campaign (Updated)', budget: 2500, description: 'updated brief' }
+  });
+  ok(edited.event.title === 'Launch Campaign (Updated)' && edited.event.budget === 2500, 'business edited own event');
+
+  let editBlockedOwner = false;
+  try {
+    await api(`/api/events/${editEvt.event._id}`, { method: 'PATCH', token: badBiz.accessToken, body: { title: 'hack' } });
+  } catch { editBlockedOwner = true; }
+  ok(editBlockedOwner, 'non-owner business blocked from editing event');
+
+  let editBlockedRole = false;
+  try {
+    await api(`/api/events/${editEvt.event._id}`, { method: 'PATCH', token: creator.accessToken, body: { title: 'x' } });
+  } catch { editBlockedRole = true; }
+  ok(editBlockedRole, 'creator blocked from editing events');
+
+  let slotGuard = false;
+  try {
+    await api(`/api/events/${editEvt.event._id}`, { method: 'PATCH', token: biz.accessToken, body: { creatorsNeeded: 0 } });
+  } catch { slotGuard = true; }
+  ok(slotGuard, 'creatorsNeeded below minimum rejected');
+
+  let delBlockedRole = false;
+  try {
+    await api(`/api/events/${editEvt.event._id}`, { method: 'DELETE', token: creator.accessToken });
+  } catch { delBlockedRole = true; }
+  ok(delBlockedRole, 'creator blocked from deleting events');
+
+  const evt3 = await api('/api/events', {
+    method: 'POST',
+    token: biz.accessToken,
+    body: { title: 'Deletable Campaign', category: 'retail', platform: 'instagram', budget: 100, location: { coordinates: [77.2, 28.6], address: 'New Delhi' } }
+  });
+  await api('/api/proposals', { method: 'POST', token: creator.accessToken, body: { toUserId: biz.user.id, eventId: evt3.event._id, offerAmount: 50, message: 'applying' } });
+  const del1 = await api(`/api/events/${evt3.event._id}`, { method: 'DELETE', token: biz.accessToken });
+  ok(del1.success === true, 'business deleted event with pending application');
+
+  const creatorNotifs = await api('/api/notifications', { token: creator.accessToken });
+  const removalNote = creatorNotifs.notifications.find(n => n.message.includes('was removed by the business'));
+  ok(!!removalNote, 'applicant notified of campaign removal');
+
+  let delFilled = false;
+  try {
+    await api(`/api/events/${evt.event._id}`, { method: 'DELETE', token: biz.accessToken });
+  } catch { delFilled = true; }
+  ok(delFilled, 'filled campaign cannot be deleted');
+
+  console.log('\n== 14. Cleanup test users ==');
+  const purge = await adminApi('/panel/dev/purge-test-users', { method: 'POST', token: adminLogin.accessToken });
+  ok(purge.purged >= 3, `purged ${purge.purged} test users (Acme Brands, Scam Co, etc.)`);
+
   console.log(`\n==== RESULT: ${passed} passed, ${failed} failed ====`);
   process.exit(failed ? 1 : 0);
 }

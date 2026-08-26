@@ -275,7 +275,7 @@ export function NearbyEventsMap({
           <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
             <AlertCircle className="h-6 w-6 text-amber-500 mb-1" />
             <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">Google Maps Unavailable</p>
-            <p className="text-[11px] text-zinc-500">{error}</p>
+            <p className="text-[11px] text-zinc-500 dark:text-[#8e95af]">{error}</p>
           </div>
         )}
 
@@ -305,7 +305,7 @@ export function NearbyEventsMap({
                   <button
                     type="button"
                     onClick={() => setSelectedEvent(null)}
-                    className="text-zinc-400 hover:text-zinc-600 text-xs font-bold px-1"
+                    className="text-zinc-400 hover:text-zinc-600 dark:hover:text-white text-xs font-bold px-1"
                   >
                     ✕
                   </button>

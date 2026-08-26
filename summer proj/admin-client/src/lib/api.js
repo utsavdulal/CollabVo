@@ -33,11 +33,13 @@ async function refreshTokens() {
   return refreshPromise;
 }
 
-export async function api(path, { method = 'GET', body } = {}) {
+export async function api(path, { method = 'GET', body, formData } = {}) {
   const headers = {};
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   let payload;
-  if (body !== undefined) {
+  if (formData) {
+    payload = formData;
+  } else if (body !== undefined) {
     headers['Content-Type'] = 'application/json';
     payload = JSON.stringify(body);
   }

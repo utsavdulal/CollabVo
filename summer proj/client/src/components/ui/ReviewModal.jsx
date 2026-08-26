@@ -40,13 +40,13 @@ export function ReviewModal({ open, onClose, targetUser, onReviewed }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
-          <h2 className="text-sm font-bold text-zinc-900">Rate & Review Partner</h2>
+      <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[#1a1d2d] p-6 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-zinc-100 dark:border-[#262a3e] pb-3">
+          <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Rate & Review Partner</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+            className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-[#212538] hover:text-zinc-700 dark:hover:text-white"
           >
             <X className="h-4 w-4" />
           </button>
@@ -57,8 +57,8 @@ export function ReviewModal({ open, onClose, targetUser, onReviewed }) {
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 mb-3">
               <CheckCircle2 className="h-6 w-6" />
             </div>
-            <h3 className="text-sm font-bold text-zinc-900">Review Published</h3>
-            <p className="mt-1 text-xs text-zinc-500">
+            <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Review Published</h3>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-[#8e95af]">
               Thank you! Your feedback helps build trust in the creator economy.
             </p>
             <button
@@ -71,12 +71,12 @@ export function ReviewModal({ open, onClose, targetUser, onReviewed }) {
           </div>
         ) : (
           <form onSubmit={submit} className="mt-4 space-y-4">
-            <p className="text-xs text-zinc-600">
-              Reviewing: <strong className="text-zinc-900">{targetUser?.name || 'User'}</strong>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+              Reviewing: <strong className="text-zinc-900 dark:text-white">{targetUser?.name || 'User'}</strong>
             </p>
 
             <div className="text-center py-2">
-              <label className="mb-2 block text-xs font-semibold text-zinc-700">Star Rating</label>
+              <label className="mb-2 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">Star Rating</label>
               <div className="flex justify-center gap-1.5">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
@@ -100,7 +100,7 @@ export function ReviewModal({ open, onClose, targetUser, onReviewed }) {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-700">Feedback & Comments (optional)</label>
+              <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">Feedback & Comments (optional)</label>
               <textarea
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
@@ -112,7 +112,7 @@ export function ReviewModal({ open, onClose, targetUser, onReviewed }) {
 
             {error && <p className="text-xs text-red-600 font-medium">{error}</p>}
 
-            <div className="flex gap-2 pt-2 border-t border-zinc-100">
+            <div className="flex gap-2 pt-2 border-t border-zinc-100 dark:border-[#262a3e]">
               <button
                 type="button"
                 onClick={onClose}

@@ -192,7 +192,7 @@ export async function requestPayout({ userId, amount }) {
   return result;
 }
 
-export async function requestTopUp({ userId, amount, referenceNote }) {
+export async function requestTopUp({ userId, amount, referenceNote, paymentProofURL = '', paymentProvider = 'esewa' }) {
   if (!amount || amount <= 0) throw new ApiError(400, 'Invalid top-up amount');
   const txn = await Transaction.create([
     {
@@ -200,7 +200,9 @@ export async function requestTopUp({ userId, amount, referenceNote }) {
       userId,
       amount,
       status: 'pending',
-      referenceNote: referenceNote || ''
+      referenceNote: referenceNote || '',
+      paymentProofURL,
+      paymentProvider
     }
   ]);
   return txn[0];
