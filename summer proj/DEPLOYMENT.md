@@ -103,6 +103,18 @@ up for persistence.
 > Security note: the Google Maps key has appeared in your git history. **Restrict
 > it to HTTP referrers** and, ideally, generate a fresh key for production.
 
+> **Your specific repo layout (already set up):**
+> - Git repo root on GitHub: `CollabVo`
+> - The actual project (with `Dockerfile`) lives in the **`summer proj/`** subfolder.
+> - Deployment files already exist and are pushed: `summer proj/Dockerfile`,
+>   `summer proj/render.yaml`, `summer proj/.dockerignore`, `summer proj/DEPLOYMENT.md`.
+>
+> Because of this, when you create the Render Web Service you must set:
+> - **Root Directory / Build context:** `summer proj`
+> - **Dockerfile path:** `./Dockerfile`
+>
+> If you leave the root as the parent `CollabVo`, Render won't find the Dockerfile.
+
 ---
 
 ## Step 4 — Repository layout & ignores
