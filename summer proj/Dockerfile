@@ -22,6 +22,11 @@ ENV VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY
 ARG VITE_ADMIN_BASE
 ENV VITE_ADMIN_BASE=$VITE_ADMIN_BASE
 
+# Admin app is served under /<ADMIN_ROUTE_PATH>, so its built assets must be
+# namespaced under that base or they collide with the top-level client /assets.
+ARG ADMIN_BASE=/ops-9f3k2/
+ENV ADMIN_BASE=$ADMIN_BASE
+
 RUN cd /app/client && npm run build
 RUN cd /app/admin-client && npm run build
 
