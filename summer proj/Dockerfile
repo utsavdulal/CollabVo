@@ -16,11 +16,10 @@ RUN cd /app/admin-client && npm install
 COPY client/ /app/client/
 COPY admin-client/ /app/admin-client/
 
-# Build-time env baked into the JS bundles
-ARG VITE_GOOGLE_MAPS_API_KEY
-ENV VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY
-ARG VITE_ADMIN_BASE
-ENV VITE_ADMIN_BASE=$VITE_ADMIN_BASE
+# Build-time env is read by Vite from the committed client/.env and
+# admin-client/.env files (COPY'd above). Do NOT set VITE_* as ENV here with
+# empty ARGs, because that would override (clobber) the values in those .env
+# files and produce bundles with empty VITE_* vars (blank admin / no maps).
 
 # Admin app is served under /<ADMIN_ROUTE_PATH>, so its built assets must be
 # namespaced under that base or they collide with the top-level client /assets.
