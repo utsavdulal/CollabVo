@@ -6,10 +6,10 @@ const transactionSchema = new Schema(
   {
     type: {
       type: String,
-      enum: ['topup', 'topup_request', 'escrow_lock', 'escrow_release', 'withdrawal', 'admin_deduct', 'escrow_refund'],
+      enum: ['topup', 'topup_request', 'escrow_lock', 'escrow_release', 'withdrawal', 'admin_deduct', 'escrow_refund', 'platform_fee'],
       required: true
     },
-    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    userId: { type: Schema.Types.ObjectId, ref: 'User' },
     counterpartyId: { type: Schema.Types.ObjectId, ref: 'User' },
     proposalId: { type: Schema.Types.ObjectId, ref: 'Proposal' },
     amount: { type: Number, required: true },

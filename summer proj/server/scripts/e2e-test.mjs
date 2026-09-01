@@ -115,7 +115,7 @@ async function main() {
   ok(accepted.proposal.escrowStatus === 'held', `escrow held (status=${accepted.proposal.escrowStatus})`);
 
   const bizWallet2 = await api('/api/wallet', { token: biz.accessToken });
-  ok(bizWallet2.wallet.availableBalance === 4000 && bizWallet2.wallet.escrowHeld === 1000, `funds locked: available=${bizWallet2.wallet.availableBalance} escrow=${bizWallet2.wallet.escrowHeld}`);
+  ok(bizWallet2.wallet.availableBalance === 3900 && bizWallet2.wallet.escrowHeld === 1100, `funds locked (offer 1000 + 10% fee): available=${bizWallet2.wallet.availableBalance} escrow=${bizWallet2.wallet.escrowHeld}`);
 
   console.log('\n== 7. Creator starts -> submits -> business requests revisions -> resubmits -> approves -> escrow release ==');
   const started = await api(`/api/proposals/${prop.proposal._id}/start`, { method: 'PATCH', token: creator.accessToken });
@@ -134,12 +134,12 @@ async function main() {
   ok(released.proposal.escrowStatus === 'released', `escrow released (status=${released.proposal.escrowStatus})`);
 
   const creatorWallet = await api('/api/wallet', { token: creator.accessToken });
-  ok(creatorWallet.wallet.claimableBalance === 1000, `creator claimable=${creatorWallet.wallet.claimableBalance}`);
+  ok(creatorWallet.wallet.claimableBalance === 900, `creator claimable (1000 - 10% fee)=${creatorWallet.wallet.claimableBalance}`);
   const bizWallet3 = await api('/api/wallet', { token: biz.accessToken });
   ok(bizWallet3.wallet.escrowHeld === 0, 'business escrow back to 0');
 
   console.log('\n== 8. Creator payout + admin pays ==');
-  await api('/api/wallet/payout', { method: 'POST', token: creator.accessToken, body: { amount: 1000 } });
+  await api('/api/wallet/payout', { method: 'POST', token: creator.accessToken, body: { amount: 900 } });
   const withdrawals = await adminApi('/wallet/withdrawals', { token: adminLogin.accessToken });
   const myWithdrawal = withdrawals.transactions.find(t => String(t.userId?._id || t.userId) === String(creator.user.id));
   ok(!!myWithdrawal && myWithdrawal.status === 'pending', 'payout pending in admin panel');
@@ -197,14 +197,14 @@ async function main() {
   ok(!inPublic, 'filled campaign automatically hidden from public explore feed');
 
   const bizWallet4 = await api('/api/wallet', { token: biz.accessToken });
-  ok(bizWallet4.wallet.availableBalance === 3500 && bizWallet4.wallet.escrowHeld === 500, `business funds locked again: available=${bizWallet4.wallet.availableBalance} escrow=${bizWallet4.wallet.escrowHeld}`);
+  ok(bizWallet4.wallet.availableBalance === 3350 && bizWallet4.wallet.escrowHeld === 550, `business funds locked again (500 + 10% fee): available=${bizWallet4.wallet.availableBalance} escrow=${bizWallet4.wallet.escrowHeld}`);
 
   await api(`/api/proposals/${prop2.proposal._id}/complete`, { method: 'PATCH', token: creator.accessToken });
   const released2 = await api(`/api/proposals/${prop2.proposal._id}/complete`, { method: 'PATCH', token: biz.accessToken });
   ok(released2.proposal.escrowStatus === 'released', `escrow released on creator-initiated proposal (status=${released2.proposal.escrowStatus})`);
 
   const creatorWallet3 = await api('/api/wallet', { token: creator.accessToken });
-  ok(creatorWallet3.wallet.claimableBalance === 500, `creator received funds from creator-initiated deal: claimable=${creatorWallet3.wallet.claimableBalance}`);
+  ok(creatorWallet3.wallet.claimableBalance === 450, `creator received funds from creator-initiated deal (500 - 10% fee): claimable=${creatorWallet3.wallet.claimableBalance}`);
   const bizWallet5 = await api('/api/wallet', { token: biz.accessToken });
   ok(bizWallet5.wallet.escrowHeld === 0 && bizWallet5.wallet.claimableBalance === 0, `business did not pay itself: escrow=${bizWallet5.wallet.escrowHeld} claimable=${bizWallet5.wallet.claimableBalance}`);
 
@@ -224,13 +224,13 @@ async function main() {
 
   await adminApi(`/wallet/topups/${myTopUp._id}/approve`, { method: 'POST', token: adminLogin.accessToken });
   const bizWallet6 = await api('/api/wallet', { token: biz.accessToken });
-  ok(bizWallet6.wallet.availableBalance === 4200, `approved top-up credited: available=${bizWallet6.wallet.availableBalance}`);
+  ok(bizWallet6.wallet.availableBalance === 4050, `approved top-up credited: available=${bizWallet6.wallet.availableBalance}`);
 
   const topUpReq2 = await api('/api/wallet/topup-request', { method: 'POST', token: biz.accessToken, body: { amount: 300 } });
   await adminApi(`/wallet/topups/${topUpReq2.topUpRequest._id}/deny`, { method: 'POST', token: adminLogin.accessToken, body: { reason: 'Payment not received' } });
   const bizWallet7 = await api('/api/wallet', { token: biz.accessToken });
   const deniedTxn = bizWallet7.transactions.find(t => t._id === topUpReq2.topUpRequest._id);
-  ok(deniedTxn?.status === 'failed' && bizWallet7.wallet.availableBalance === 4200, 'denied top-up not credited');
+  ok(deniedTxn?.status === 'failed' && bizWallet7.wallet.availableBalance === 4050, 'denied top-up not credited');
 
   console.log('\n== 12. Reporting system ==');
   const reportRes = await api('/api/reports', {
@@ -261,6 +261,7 @@ async function main() {
 
   const audit = await adminApi('/panel/analytics', { token: adminLogin.accessToken });
   ok(audit.totalCreators >= 1 && audit.totalBusinesses >= 2, `analytics: creators=${audit.totalCreators} businesses=${audit.totalBusinesses}`);
+  ok(audit.platformRevenue === 300, `platform revenue from 2 deals (₹200 + ₹100) = ${audit.platformRevenue}`);
 
   console.log('\n== 13. Event editing ==');
   const editEvt = await api('/api/events', {

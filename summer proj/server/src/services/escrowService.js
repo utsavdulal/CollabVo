@@ -3,6 +3,19 @@ import { Wallet } from '../models/Wallet.js';
 import { Transaction } from '../models/Transaction.js';
 import { ApiError } from '../middleware/error.js';
 
+export const PLATFORM_FEE_RATE = 0.10;
+
+export function calcFees(offerAmount) {
+  const businessFee = Math.round(offerAmount * PLATFORM_FEE_RATE);
+  const creatorFee = Math.round(offerAmount * PLATFORM_FEE_RATE);
+  return {
+    businessFee,
+    creatorFee,
+    platformFee: businessFee + creatorFee,
+    businessTotal: offerAmount + businessFee
+  };
+}
+
 export async function sweepExpiredEscrows() {
   const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const { Proposal } = await import('../models/Proposal.js');
@@ -76,17 +89,19 @@ export async function lockEscrow({ proposal, session }) {
   const businessUserId = fromUser.role === 'business' ? proposal.fromUserId : proposal.toUserId;
   const creatorUserId = String(businessUserId) === String(proposal.fromUserId) ? proposal.toUserId : proposal.fromUserId;
 
+  const { businessTotal, businessFee } = calcFees(proposal.offerAmount);
+
   const businessWallet = await getOrCreateWallet(businessUserId, session);
   const creatorWallet = await getOrCreateWallet(creatorUserId, session);
   
-  if (businessWallet.availableBalance < proposal.offerAmount) {
-    throw new ApiError(400, 'Insufficient wallet balance to secure this deal');
+  if (businessWallet.availableBalance < businessTotal) {
+    throw new ApiError(400, 'Insufficient wallet balance to secure this deal (includes 10% platform fee)');
   }
-  businessWallet.availableBalance -= proposal.offerAmount;
-  businessWallet.escrowHeld += proposal.offerAmount;
+  businessWallet.availableBalance -= businessTotal;
+  businessWallet.escrowHeld += businessTotal;
   await businessWallet.save({ session });
 
-  // Update creator payment on hold
+  // Update creator payment on hold (full offer amount, before creator fee)
   creatorWallet.escrowHeld += proposal.offerAmount;
   await creatorWallet.save({ session });
 
@@ -105,6 +120,8 @@ export async function lockEscrow({ proposal, session }) {
   );
 
   proposal.escrowStatus = 'held';
+  proposal.businessFee = businessFee;
+  proposal.creatorFee = calcFees(proposal.offerAmount).creatorFee;
   await proposal.save({ session });
 }
 
@@ -113,6 +130,7 @@ export async function releaseEscrow({ proposal, session }) {
     throw new ApiError(400, 'Escrow is not held for this proposal');
   }
   const amount = proposal.offerAmount;
+  const { businessFee, creatorFee } = calcFees(amount);
   const { User } = await import('../models/User.js');
   const fromUser = await User.findById(proposal.fromUserId).session(session);
   const toUser = await User.findById(proposal.toUserId).session(session);
@@ -124,12 +142,15 @@ export async function releaseEscrow({ proposal, session }) {
   const businessWallet = await getOrCreateWallet(businessUserId, session);
   const creatorWallet = await getOrCreateWallet(creatorUserId, session);
 
-  businessWallet.escrowHeld = Math.max(0, businessWallet.escrowHeld - amount);
+  // Business escrow: full amount committed (offer + business fee) is consumed
+  businessWallet.escrowHeld = Math.max(0, businessWallet.escrowHeld - (amount + businessFee));
   await businessWallet.save({ session });
 
+  // Creator: release escrow, pay out offer minus 10% platform fee
+  const creatorsNet = amount - creatorFee;
   creatorWallet.escrowHeld = Math.max(0, creatorWallet.escrowHeld - amount);
-  creatorWallet.availableBalance += amount;
-  creatorWallet.claimableBalance += amount;
+  creatorWallet.availableBalance += creatorsNet;
+  creatorWallet.claimableBalance += creatorsNet;
   await creatorWallet.save({ session });
 
   await Transaction.create(
@@ -139,14 +160,32 @@ export async function releaseEscrow({ proposal, session }) {
         userId: creatorUserId,
         counterpartyId: businessUserId,
         proposalId: proposal._id,
-        amount,
+        amount: amount,
         status: 'completed'
       }
     ],
     { session }
   );
 
+  // Record platform commission (business 10% + creator 10%)
+  if (businessFee > 0 || creatorFee > 0) {
+    await Transaction.create(
+      [
+        {
+          type: 'platform_fee',
+          proposalId: proposal._id,
+          amount: businessFee + creatorFee,
+          status: 'completed',
+          referenceNote: `Platform fee: business ₹${businessFee} + creator ₹${creatorFee}`
+        }
+      ],
+      { session }
+    );
+  }
+
   proposal.escrowStatus = 'released';
+  proposal.businessFee = businessFee;
+  proposal.creatorFee = creatorFee;
   await proposal.save({ session });
 }
 

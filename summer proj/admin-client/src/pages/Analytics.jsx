@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Users, BadgeCheck, Coins, Clock } from 'lucide-react';
+import { Users, BadgeCheck, Coins, Clock, TrendingUp } from 'lucide-react';
 import { api } from '../lib/api.js';
 
 export default function Analytics() {
@@ -33,6 +33,7 @@ export default function Analytics() {
     { label: 'Total Creators', value: a.totalCreators, icon: Users, tone: 'bg-brand-50 text-brand-600' },
     { label: 'Total Businesses', value: a.totalBusinesses, icon: Users, tone: 'bg-amber-50 text-amber-600' },
     { label: 'Verified Businesses', value: a.totalVerifiedBusinesses, icon: BadgeCheck, tone: 'bg-green-50 text-green-600' },
+    { label: 'Platform Revenue (10%×2)', value: `₹${a.platformRevenue} (${a.platformRevenueCount} deals)`, icon: TrendingUp, tone: 'bg-purple-50 text-purple-600' },
     { label: 'Virtual Currency in Circulation', value: `₹${a.virtualCurrencyInCirculation}`, icon: Coins, tone: 'bg-blue-50 text-blue-600' },
     { label: 'Pending Withdrawals', value: `₹${a.pendingWithdrawalTotal} (${a.pendingWithdrawalCount})`, icon: Clock, tone: 'bg-red-50 text-red-600' }
   ];

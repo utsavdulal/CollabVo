@@ -22,7 +22,7 @@ const router = Router();
 router.use(requireAdminAuth);
 
 router.get('/analytics', asyncHandler(async (_req, res) => {
-  const [creators, businesses, verifiedBusinesses, pendingWithdrawals, walletAgg] = await Promise.all([
+  const [creators, businesses, verifiedBusinesses, pendingWithdrawals, walletAgg, platformFeeAgg, platformFeeCount] = await Promise.all([
     User.countDocuments({ role: 'creator' }),
     User.countDocuments({ role: 'business' }),
     User.countDocuments({ role: 'business', verificationStatus: 'verified' }),
@@ -32,7 +32,12 @@ router.get('/analytics', asyncHandler(async (_req, res) => {
     ]),
     Wallet.aggregate([
       { $group: { _id: null, total: { $sum: { $add: ['$availableBalance', '$escrowHeld', '$claimableBalance'] } } } }
-    ])
+    ]),
+    Transaction.aggregate([
+      { $match: { type: 'platform_fee', status: 'completed' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]),
+    Transaction.countDocuments({ type: 'platform_fee', status: 'completed' })
   ]);
 
   res.json({
@@ -41,7 +46,9 @@ router.get('/analytics', asyncHandler(async (_req, res) => {
     totalVerifiedBusinesses: verifiedBusinesses,
     virtualCurrencyInCirculation: walletAgg[0]?.total || 0,
     pendingWithdrawalTotal: pendingWithdrawals[0]?.total || 0,
-    pendingWithdrawalCount: pendingWithdrawals[0]?.count || 0
+    pendingWithdrawalCount: pendingWithdrawals[0]?.count || 0,
+    platformRevenue: platformFeeAgg[0]?.total || 0,
+    platformRevenueCount: platformFeeCount
   });
 }));
 
@@ -109,13 +116,16 @@ router.post('/escrows/:id/refund', asyncHandler(async (req, res) => {
   const toUser = await UserModel.findById(proposal.toUserId);
   const businessUserId = fromUser?.role === 'business' ? proposal.fromUserId : proposal.toUserId;
 
+  const { calcFees } = await import('../../services/escrowService.js');
+  const { businessTotal } = calcFees(proposal.offerAmount);
+
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
       const { getOrCreateWallet: gow } = await import('../../services/escrowService.js');
       const businessWallet = await gow(businessUserId, session);
-      businessWallet.escrowHeld = Math.max(0, businessWallet.escrowHeld - proposal.offerAmount);
-      businessWallet.availableBalance += proposal.offerAmount;
+      businessWallet.escrowHeld = Math.max(0, businessWallet.escrowHeld - businessTotal);
+      businessWallet.availableBalance += businessTotal;
       await businessWallet.save({ session });
 
       await Transaction.create([{
@@ -123,11 +133,13 @@ router.post('/escrows/:id/refund', asyncHandler(async (req, res) => {
         userId: businessUserId,
         counterpartyId: businessUserId === proposal.fromUserId ? proposal.toUserId : proposal.fromUserId,
         proposalId: proposal._id,
-        amount: proposal.offerAmount,
+        amount: businessTotal,
         status: 'completed'
       }], { session });
 
       proposal.escrowStatus = 'released';
+      proposal.businessFee = 0;
+      proposal.creatorFee = 0;
       await proposal.save({ session });
     });
   } finally {
@@ -139,10 +151,10 @@ router.post('/escrows/:id/refund', asyncHandler(async (req, res) => {
     action: 'refund_escrow',
     targetType: 'Proposal',
     targetId: proposal._id,
-    details: { amount: proposal.offerAmount, refundedTo: businessUserId, reason: req.body?.reason || 'Admin refund' }
+    details: { amount: businessTotal, refundedTo: businessUserId, reason: req.body?.reason || 'Admin refund' }
   });
 
-  await notifyUser(businessUserId, { type: 'wallet', message: `₹${proposal.offerAmount} escrow was refunded to your wallet by admin.`, relatedId: proposal._id });
+  await notifyUser(businessUserId, { type: 'wallet', message: `₹${businessTotal} escrow was refunded to your wallet by admin.`, relatedId: proposal._id });
 
   res.json({ proposal });
 }));
@@ -153,12 +165,21 @@ router.post('/dev/purge-test-users', requireAdminAuth, asyncHandler(async (req, 
 
   const users = await User.find({ email: { $regex: '^(biz|creator|badbiz)\\d+@t\\.com$' } }).select('_id');
   const ids = users.map((u) => u._id);
+
+  // Always wipe platform-fee ledger entries (all test artifacts) so repeated
+  // dev/e2e runs start from a clean revenue baseline.
+  await Transaction.deleteMany({ type: 'platform_fee' });
+
   if (ids.length === 0) return res.json({ purged: 0 });
+
+  const proposals = await Proposal.find({ $or: [{ fromUserId: { $in: ids } }, { toUserId: { $in: ids } }] }).select('_id');
+  const proposalIds = proposals.map((p) => p._id);
 
   await Promise.all([
     User.deleteMany({ _id: { $in: ids }, role: { $ne: 'admin' } }),
     Wallet.deleteMany({ userId: { $in: ids } }),
     Transaction.deleteMany({ userId: { $in: ids } }),
+    Transaction.deleteMany({ type: 'platform_fee', proposalId: { $in: proposalIds } }),
     Event.deleteMany({ createdBy: { $in: ids } }),
     Proposal.deleteMany({ $or: [{ fromUserId: { $in: ids } }, { toUserId: { $in: ids } }] }),
     Notification.deleteMany({ userId: { $in: ids } }),

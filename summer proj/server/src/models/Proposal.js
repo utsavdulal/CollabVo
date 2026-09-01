@@ -9,6 +9,8 @@ const proposalSchema = new Schema(
     eventId: { type: Schema.Types.ObjectId, ref: 'Event' },
     status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' },
     offerAmount: { type: Number, required: true },
+    businessFee: { type: Number, default: 0 },
+    creatorFee: { type: Number, default: 0 },
     message: { type: String, default: '' },
     meetupLocation: {
       coordinates: { type: [Number], default: [0, 0] },

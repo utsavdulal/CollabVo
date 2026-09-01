@@ -23,7 +23,9 @@ export const env = {
   AZURE_BLOB_PRIVATE_CONTAINER: process.env.AZURE_BLOB_PRIVATE_CONTAINER || 'collavo-private',
   AZURE_KEYVAULT_URL: process.env.AZURE_KEYVAULT_URL,
   AUTO_RELEASE_DAYS: Number(process.env.AUTO_RELEASE_DAYS || 7),
-  ESCROW_AUTO_RELEASE_DAYS: Number(process.env.ESCROW_AUTO_RELEASE_DAYS || 7)
+  ESCROW_AUTO_RELEASE_DAYS: Number(process.env.ESCROW_AUTO_RELEASE_DAYS || 7),
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-flash-lite-latest'
 };
 
 const missing = required.filter(k => !env[k]);

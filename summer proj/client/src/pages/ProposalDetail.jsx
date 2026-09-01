@@ -248,10 +248,10 @@ export default function ProposalDetail() {
   const paymentLabel = proposal.escrowStatus === 'released' ? 'Paid' : proposal.escrowStatus === 'held' ? 'Escrow Held' : 'Pending';
 
   const creatorFee = proposal.offerAmount;
-  const platformFee = creatorFee * 0.05;
-  const vatOnFee = platformFee * 0.13;
-  const creatorReceives = creatorFee - platformFee - vatOnFee;
-  const totalBusiness = creatorFee + platformFee + vatOnFee;
+  const businessPlatformFee = Math.round(creatorFee * 0.10);
+  const creatorPlatformFee = Math.round(creatorFee * 0.10);
+  const creatorReceives = creatorFee - creatorPlatformFee;
+  const totalBusiness = creatorFee + businessPlatformFee;
 
   const isProjectComplete = proposal.escrowStatus === 'released';
   const isEscrowHeld = proposal.escrowStatus === 'held';
@@ -681,20 +681,24 @@ export default function ProposalDetail() {
         <h2 className="text-sm font-bold text-zinc-900 dark:text-white mb-4">Payment Details</h2>
         <div className="space-y-3 text-xs mb-5">
           <div className="flex items-center justify-between">
-            <span className="text-zinc-500 dark:text-[#8e95af]">Creator Fee</span>
+            <span className="text-zinc-500 dark:text-[#8e95af]">Deal Amount</span>
             <span className="font-bold text-zinc-900 dark:text-white">₹{creatorFee.toLocaleString()}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-zinc-500 dark:text-[#8e95af]">Platform Fee (5%)</span>
-            <span className="font-bold text-zinc-900 dark:text-white">₹{platformFee.toLocaleString()}</span>
+            <span className="text-zinc-500 dark:text-[#8e95af]">Platform Fee &mdash; Business (10%)</span>
+            <span className="font-bold text-zinc-900 dark:text-white">&minus;₹{businessPlatformFee.toLocaleString()}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-zinc-500 dark:text-[#8e95af]">VAT (13% of fee)</span>
-            <span className="font-bold text-zinc-900 dark:text-white">₹{vatOnFee.toFixed(2)}</span>
+            <span className="text-zinc-500 dark:text-[#8e95af]">Platform Fee &mdash; Creator (10%)</span>
+            <span className="font-bold text-zinc-900 dark:text-white">&minus;₹{creatorPlatformFee.toLocaleString()}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-zinc-500 dark:text-[#8e95af]">Creator Receives</span>
+            <span className="font-bold text-emerald-600 dark:text-emerald-400">₹{creatorReceives.toLocaleString()}</span>
           </div>
         </div>
         <div className="border-t border-zinc-200 dark:border-[#262a3e] pt-3 flex items-center justify-between text-xs mb-4">
-          <span className="font-bold text-zinc-900 dark:text-white">Total</span>
+          <span className="font-bold text-zinc-900 dark:text-white">Business Total &mdash; Pays</span>
           <span className="text-base font-black text-emerald-600 dark:text-emerald-400">₹{totalBusiness.toLocaleString()}</span>
         </div>
         <div className="flex items-center justify-between text-xs mb-4 flex-wrap gap-2">

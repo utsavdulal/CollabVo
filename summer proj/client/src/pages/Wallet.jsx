@@ -141,7 +141,7 @@ export default function WalletPage() {
               <p className="mt-1 text-lg font-bold text-white">
                 ₹{wallet.escrowHeld.toLocaleString()}
               </p>
-              <p className="mt-0.5 text-[10px] text-zinc-500">Locked until delivery confirmation</p>
+              <p className="mt-0.5 text-[10px] text-zinc-500">Locked until delivery confirmation &middot; includes 10% platform fee</p>
             </div>
           ) : (
             <div className="rounded-2xl bg-zinc-800/80 p-3.5">

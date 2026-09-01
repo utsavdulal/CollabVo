@@ -1,20 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ChevronLeft, Sparkles, Check, Banknote, Lightbulb, X, ExternalLink
+  ChevronLeft, Sparkles, Loader2, Check, Banknote, Lightbulb, X, ExternalLink
 } from 'lucide-react';
 import { api } from '../../lib/api.js';
 import { useAuthStore } from '../../store/authStore.js';
 import { useNavigate } from 'react-router-dom';
-
-const PITCH_TEMPLATES = [
-  (brand, title) =>
-    `Hi ${brand} team!\n\nI'm excited to apply for the "${title}" campaign. I believe my content style, aesthetic, and highly engaged audience are a great fit for what you're looking for. I'd love to deliver top-quality reels and stories that drive real customer engagement for your brand.`,
-  (brand, title) =>
-    `Hello ${brand}!\n\nI love your brand and would be thrilled to collaborate on "${title}". I specialize in authentic storytelling and creative visual content. Let's create memorable deliverables that showcase your products and connect deeply with our target audience.`,
-  (brand, title) =>
-    `Hi there ${brand}!\n\nI'm very interested in partnering on "${title}". With consistent reach and high community interaction, I can guarantee professional deliverables and creative coverage tailored to your campaign goals.`
-];
 
 export function SubmitProposalModal({ open, onClose, event, targetUser, onSubmitted }) {
   const { user } = useAuthStore();
@@ -28,23 +19,35 @@ export function SubmitProposalModal({ open, onClose, event, targetUser, onSubmit
   const [message, setMessage] = useState('');
   const [rate, setRate] = useState(String(minBudget));
   const [portfolio, setPortfolio] = useState('');
-  const [templateIdx, setTemplateIdx] = useState(0);
+  const [generating, setGenerating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  // Initial message generation
-  useEffect(() => {
-    if (open && !message) {
-      setMessage(PITCH_TEMPLATES[0](brandName, eventTitle));
-    }
-  }, [open, brandName, eventTitle]);
-
   if (!open) return null;
 
-  const handleRegenerate = () => {
-    const nextIdx = (templateIdx + 1) % PITCH_TEMPLATES.length;
-    setTemplateIdx(nextIdx);
-    setMessage(PITCH_TEMPLATES[nextIdx](brandName, eventTitle));
+  const handleGenerate = async () => {
+    setError('');
+    if (!event?._id) {
+      setError('Attach a campaign to use AI generation.');
+      return;
+    }
+    setGenerating(true);
+    try {
+      const result = await api('/proposals/generate', {
+        method: 'POST',
+        body: { eventId: event._id }
+      });
+      if (result?.message) {
+        setMessage(result.message);
+      }
+      if (result?.suggestedRate) {
+        setRate(String(result.suggestedRate));
+      }
+    } catch (err) {
+      setError(err.message || 'AI generation failed. Please try again.');
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -171,10 +174,16 @@ export function SubmitProposalModal({ open, onClose, event, targetUser, onSubmit
               </label>
               <button
                 type="button"
-                onClick={handleRegenerate}
-                className="inline-flex items-center gap-1 rounded-xl bg-indigo-50 border border-indigo-200 dark:bg-[#232542] dark:border-[#6366f1]/40 px-2.5 py-1 text-[11px] font-bold text-[#6366f1] dark:text-[#818cf8] hover:bg-indigo-100 dark:hover:bg-[#2e3157] transition-colors"
+                onClick={handleGenerate}
+                disabled={generating}
+                className="inline-flex items-center gap-1 rounded-xl bg-indigo-50 border border-indigo-200 dark:bg-[#232542] dark:border-[#6366f1]/40 px-2.5 py-1 text-[11px] font-bold text-[#6366f1] dark:text-[#818cf8] hover:bg-indigo-100 dark:hover:bg-[#2e3157] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <Sparkles className="h-3 w-3" /> Regenerate
+                {generating ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3 w-3" />
+                )}
+                {generating ? 'Writing...' : 'Generate with AI'}
               </button>
             </div>
 
@@ -219,6 +228,11 @@ export function SubmitProposalModal({ open, onClose, event, targetUser, onSubmit
             />
             <p className="mt-1 text-[11px] text-zinc-500 dark:text-[#8e95af]">
               Budget range: Rs. {minBudget.toLocaleString()} – Rs. {maxBudget.toLocaleString()}
+            </p>
+            <p className="mt-1.5 rounded-lg bg-indigo-50 border border-indigo-100 dark:bg-[#1b1f38] dark:border-[#2a2f4c] px-2.5 py-1.5 text-[11px] font-medium text-indigo-600 dark:text-[#818cf8]">
+              {user?.role === 'business'
+                ? `You pay a 10% platform fee on top (₹${Number(rate || 0) > 0 ? Math.round(Number(rate) * 0.1).toLocaleString() : 0} on this offer).`
+                : `A 10% platform fee is deducted from your payout when the deal completes.`}
             </p>
           </div>
 

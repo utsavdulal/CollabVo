@@ -7,8 +7,9 @@ import { User } from '../../models/User.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { validate } from '../../middleware/validate.js';
 import { asyncHandler, ApiError } from '../../middleware/error.js';
-import { lockEscrow, releaseEscrow, sweepExpiredEscrows, getOrCreateWallet } from '../../services/escrowService.js';
+import { lockEscrow, releaseEscrow, sweepExpiredEscrows, getOrCreateWallet, calcFees } from '../../services/escrowService.js';
 import { notifyUser } from '../../services/notificationService.js';
+import { generateProposalPitch } from '../../services/proposalGeneratorService.js';
 import { upload, validateUploadedFiles } from '../../middleware/upload.js';
 import { uploadLimiter } from '../../middleware/rateLimiter.js';
 import { storage } from '../../config/azureBlob.js';
@@ -25,6 +26,10 @@ const createSchema = z.object({
     coordinates: z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]),
     address: z.string().default('')
   }).optional()
+});
+
+const generateSchema = z.object({
+  eventId: z.string().regex(/^[0-9a-fA-F]{24}$/).optional()
 });
 
 async function isBothAccepted(proposal) {
@@ -87,6 +92,37 @@ router.get('/:id', asyncHandler(async (req, res) => {
   const isParty = String(proposal.fromUserId._id) === String(req.user._id) || String(proposal.toUserId._id) === String(req.user._id);
   if (!isParty) throw new ApiError(403, 'Forbidden');
   res.json({ proposal });
+}));
+
+router.post('/generate', validate(generateSchema), asyncHandler(async (req, res) => {
+  let campaign;
+
+  if (req.body.eventId) {
+    campaign = await Event.findById(req.body.eventId);
+    if (!campaign) throw new ApiError(404, 'Campaign event not found');
+  }
+
+  if (!campaign) {
+    throw new ApiError(400, 'Attach a campaign to generate an AI proposal');
+  }
+
+  const minBudget = campaign.budget || 2500;
+  const result = await generateProposalPitch({
+    campaign: {
+      title: campaign.title,
+      description: campaign.description,
+      category: campaign.category,
+      platform: campaign.platform,
+      workMode: campaign.workMode,
+      budget: campaign.budget,
+      deliverables: campaign.deliverables,
+      minBudget,
+      maxBudget: Math.round(minBudget * 1.5)
+    },
+    creator: { name: req.user.name }
+  });
+
+  res.json(result);
 }));
 
 router.post('/', validate(createSchema), asyncHandler(async (req, res) => {
@@ -206,10 +242,11 @@ router.patch('/:id/accept', asyncHandler(async (req, res) => {
     throw new ApiError(403, 'The business must be verified before accepting proposals');
   }
 
-  // Check wallet balance for the business user (who will pay escrow)
+  // Check wallet balance for the business user (who will pay escrow, incl. 10% platform fee)
   const businessWallet = await getOrCreateWallet(businessUserId);
-  if (businessWallet.availableBalance < proposal.offerAmount) {
-    throw new ApiError(400, 'Insufficient wallet balance to secure this deal');
+  const { businessTotal } = calcFees(proposal.offerAmount);
+  if (businessWallet.availableBalance < businessTotal) {
+    throw new ApiError(400, 'Insufficient wallet balance to secure this deal (includes 10% platform fee)');
   }
 
   // Mark acceptance based on who is accepting
