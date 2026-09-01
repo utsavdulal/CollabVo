@@ -16,9 +16,11 @@ RUN cd /app/admin-client && npm install
 COPY client/ /app/client/
 COPY admin-client/ /app/admin-client/
 
-# Build-time env baked into the JS bundle (Maps key)
+# Build-time env baked into the JS bundles
 ARG VITE_GOOGLE_MAPS_API_KEY
 ENV VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY
+ARG VITE_ADMIN_BASE
+ENV VITE_ADMIN_BASE=$VITE_ADMIN_BASE
 
 RUN cd /app/client && npm run build
 RUN cd /app/admin-client && npm run build

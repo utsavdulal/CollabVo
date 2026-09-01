@@ -5,7 +5,7 @@ dist
 uploads
 **/uploads
 .git
-**/.env
-**/.env.*
+server/.env
+server/.env.*
 *.log
 deck-assets
