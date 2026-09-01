@@ -12,3 +12,7 @@ Thumbs.db
 .env.*.local
 !.env.example
 !.env.production.example
+
+# Build-time env files that must be included in the Docker image (public, non-secret)
+!summer proj/admin-client/.env
+!summer proj/client/.env
